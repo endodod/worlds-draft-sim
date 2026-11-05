@@ -23,9 +23,9 @@ export type PoolTier = 'signature' | 'comfort' | 'pocket' | 'off';
 /** The user's draft plan for a game: from greedy (best champions, often read and banned) to safe (deep pool picks). */
 export type DraftPlan = 'comfort' | 'balanced' | 'deep';
 export const PLANS: { key: DraftPlan; label: string; desc: string }[] = [
-  { key: 'comfort', label: 'Best champions', desc: 'Everyone on their signature picks. Highest mastery, but the opponent will read it and ban a few.' },
-  { key: 'balanced', label: 'Balanced', desc: 'Solid comfort picks from deeper in each pool. Some ban risk.' },
-  { key: 'deep', label: 'Deep pool', desc: 'Pocket picks barely in each pool. Rarely banned, lower mastery.' },
+  { key: 'comfort', label: 'Aggressive', desc: 'Best champions. Highest mastery, but the opponent will read it and ban some of them.' },
+  { key: 'balanced', label: 'Medium', desc: 'Solid comfort picks. Some ban risk.' },
+  { key: 'deep', label: 'Safe', desc: 'Picks the opponent won\'t expect. Rarely banned, lower mastery.' },
 ];
 
 export interface Pick {

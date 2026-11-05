@@ -2,69 +2,39 @@ import { useMemo, useState } from 'react';
 import { DraftView } from '../components/DraftView';
 import { GameView, fmt } from '../components/GameView';
 import { TEAM_COLOR } from '../components/RiftMap';
-import { ChampIcon, RoleIcon, TIER_STYLE } from '../components/atoms';
-import { PLANS, banRisk, planPicks, playerOptions, type DraftPlan } from '../lib/draft';
+import { ChampIcon } from '../components/atoms';
+import { PLANS, type DraftPlan } from '../lib/draft';
 import { simulateSeries, type SeriesResult, type SeriesTeam } from '../lib/series';
 
-function PlanPicker({ team, locked, game, onPick }: { team: SeriesTeam; locked: Set<string>; game: number; onPick: (p: DraftPlan | undefined) => void }) {
+const PLAN_STYLE: Record<DraftPlan, { icon: string; accent: string }> = {
+  comfort: { icon: '🔥', accent: '#ff5a5f' },
+  balanced: { icon: '⚖️', accent: '#e2c97e' },
+  deep: { icon: '🛡️', accent: '#3ee6d6' },
+};
+
+/** Three draft plans; the draft itself (picks, bans, replacements) is handled automatically. */
+function PlanPicker({ game, onPick }: { game: number; onPick: (p: DraftPlan) => void }) {
   return (
     <div className="space-y-3">
-      <div className="flex flex-wrap items-end justify-between gap-2">
-        <div>
-          <div className="label text-gold-500">Game {game} · your draft</div>
-          <h3 className="display text-2xl text-white">How do you want to draft?</h3>
-          <p className="text-sm text-slate-400">The greedier the plan, the more likely the opponent reads it and bans a few picks. Banned picks are replaced by random low-pool or off-pool champions.</p>
-        </div>
-        <button className="btn-ghost text-xs" onClick={() => onPick(undefined)}>
-          Let the coach draft
-        </button>
+      <div>
+        <div className="label text-gold-500">Game {game} · your draft</div>
+        <h3 className="display text-2xl text-white">Choose your draft</h3>
       </div>
-      <div className="grid gap-3 md:grid-cols-3">
-        {PLANS.map((plan, k) => {
-          const champs = planPicks(team.players, team.year, plan.key, locked);
-          const risks = champs.map((c) => banRisk(plan.key, c, team.year));
-          const expected = risks.reduce((a, b) => a + b, 0);
-          const opts = team.players.map((p) => playerOptions(p, team.year));
-          const mast = champs.map((c, i) => opts[i].find((o) => o.champion === c)?.mastery ?? 0.3);
-          const avgM = mast.reduce((a, b) => a + b, 0) / 5;
-          return (
-            <button key={plan.key} onClick={() => onPick(plan.key)} className="card group flex flex-col gap-3 p-4 text-left transition hover:-translate-y-0.5 hover:border-gold-500/60 hover:shadow-glow">
-              <div className="flex items-start justify-between gap-2">
-                <div>
-                  <div className="label">{['Greedy', 'Measured', 'Safe'][k]}</div>
-                  <div className="font-display text-2xl font-bold uppercase leading-none tracking-wide text-white">{plan.label}</div>
-                </div>
-                <div className="text-right">
-                  <div className="font-display text-2xl font-bold leading-none tabular-nums text-gold-400">{Math.round(avgM * 100)}</div>
-                  <div className="label !tracking-[0.1em]">mastery</div>
-                </div>
-              </div>
-              <p className="text-[12px] leading-snug text-slate-400">{plan.desc}</p>
-              <div className="space-y-1">
-                {team.players.map((p, i) => {
-                  const o = opts[i].find((x) => x.champion === champs[i]);
-                  return (
-                    <div key={p.handle} className="flex items-center gap-2 text-[12px]">
-                      <RoleIcon role={p.role} size={11} />
-                      <ChampIcon name={champs[i]} size={22} ring={o ? TIER_STYLE[o.tier].color + '99' : undefined} />
-                      <span className="min-w-0 flex-1 truncate">
-                        <b className="font-semibold">{p.handle}</b> <span className="text-slate-400">{champs[i]}</span>
-                      </span>
-                      <span className="text-[10px] text-slate-500">{o?.games ?? 0}g</span>
-                      <span className={`w-9 text-right text-[10px] tabular-nums ${risks[i] > 0.35 ? 'text-rose-400' : risks[i] > 0.15 ? 'text-orange-300' : 'text-emerald-400'}`} title="Chance this pick gets banned">
-                        {Math.round(risks[i] * 100)}%
-                      </span>
-                    </div>
-                  );
-                })}
-              </div>
-              <div className="mt-auto flex items-center justify-between border-t border-white/[0.06] pt-2 text-[11px]">
-                <span className="text-slate-500">Expected bans</span>
-                <span className="font-semibold tabular-nums text-slate-200">{expected.toFixed(1)}</span>
-              </div>
-            </button>
-          );
-        })}
+      <div className="grid gap-3 sm:grid-cols-3">
+        {PLANS.map((plan) => (
+          <button
+            key={plan.key}
+            onClick={() => onPick(plan.key)}
+            className="card group flex flex-col items-center gap-2 p-6 text-center transition hover:-translate-y-0.5 hover:shadow-glow"
+            style={{ borderColor: PLAN_STYLE[plan.key].accent + '55' }}
+          >
+            <span className="text-3xl">{PLAN_STYLE[plan.key].icon}</span>
+            <span className="font-display text-3xl font-bold uppercase leading-none tracking-wide" style={{ color: PLAN_STYLE[plan.key].accent }}>
+              {plan.label}
+            </span>
+            <span className="text-[12px] leading-snug text-slate-400">{plan.desc}</span>
+          </button>
+        ))}
       </div>
     </div>
   );
@@ -127,7 +97,6 @@ export function SeriesScreen({ s: initial, watch, initialPlans = [], onBack }: {
   const over = gameIdx >= s.games.length;
   const g = s.games[gameIdx];
   const ordered = g ? ([s.teams[g.blue], s.teams[1 - g.blue]] as [SeriesTeam, SeriesTeam]) : null;
-  const locked = useMemo(() => new Set(s.fearless ? finishedGames.flatMap((x) => [...x.draft.picks[0], ...x.draft.picks[1]].map((p) => p.champion)) : []), [s, finishedGames]);
   const back = () => onBack(plans);
   const next = (i: number) => {
     setGameIdx(i);
@@ -143,15 +112,13 @@ export function SeriesScreen({ s: initial, watch, initialPlans = [], onBack }: {
           <div className="flex items-center gap-2">
             {['plan', 'draft', 'game'].filter((p) => interactive || p !== 'plan').map((p, i) => (
               <span key={p} className={`chip ${phase === p ? 'bg-gold-500/20 text-gold-300' : 'bg-white/[0.04] text-slate-500'}`}>
-                {i + 1}. {p === 'plan' ? 'Draft plan' : p === 'draft' ? 'Pick & ban' : 'Live game'}
+                {i + 1}. {p === 'plan' ? 'Draft' : p === 'draft' ? 'Pick & ban' : 'Live game'}
               </span>
             ))}
             <span className="ml-auto text-sm text-slate-400">Game {gameIdx + 1}</span>
           </div>
           {phase === 'plan' && (
             <PlanPicker
-              team={s.teams[userIdx]}
-              locked={locked}
               game={gameIdx + 1}
               onPick={(p) => {
                 const np = [...plans];

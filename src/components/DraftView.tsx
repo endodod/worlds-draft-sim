@@ -4,7 +4,7 @@ import type { SeriesTeam } from '../lib/series';
 import { TEAM_COLOR } from './RiftMap';
 import { ChampIcon, RoleIcon, TIER_STYLE } from './atoms';
 
-const PLAN_NAME = { comfort: 'Best champions', balanced: 'Balanced', deep: 'Deep pool' } as const;
+const PLAN_NAME = { comfort: 'Aggressive', balanced: 'Medium', deep: 'Safe' } as const;
 
 export function DraftView({ draft, teams, fearless }: { draft: DraftResult; teams: [SeriesTeam, SeriesTeam]; fearless: boolean }) {
   return (
@@ -31,7 +31,7 @@ export function DraftView({ draft, teams, fearless }: { draft: DraftResult; team
                 </div>
                 {report && (
                   <div className="rounded-xl border border-gold-500/30 bg-gold-500/[0.06] px-3 py-2 text-[11px]">
-                    <span className="font-semibold text-gold-400">Your plan: {PLAN_NAME[report.plan]}</span>
+                    <span className="font-semibold text-gold-400">Your draft: {PLAN_NAME[report.plan]}</span>
                     {report.entries.filter((e) => e.status !== 'ok').length === 0 ? (
                       <span className="text-slate-400"> · every planned pick got through</span>
                     ) : (

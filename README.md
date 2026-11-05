@@ -14,8 +14,8 @@ npm run build      # type-check + production build into dist/
 ## How a run works
 
 1. **Start**: pick a seed (or leave it random), a format (modern Swiss or classic groups), fearless on/off and the range of draftable seasons.
-2. **Draft (5 rounds)**: each round shows 3 random Worlds rosters (team + year, never repeated in a run) on a role-aligned board: every role starts at the same height in all three rosters. Pick exactly one player for a role you haven't filled. Players in filled roles are greyed out. A roster with no eligible player is rerolled. The team rating, every synergy modifier and a radar chart (early game, teamfight, macro, pool depth, shotcalling, experience) update after each pick.
-3. **Tournament**: 15 real historical rosters at their real strength, never ones you were offered during the draft. Swiss rounds are Bo1, and matches where advancement or elimination is on the line are Bo3. Quarterfinals, semifinals and the final are Bo5. Watch your series game by game or skip to the end of a game or series. Before each of your games you choose a **draft plan** (below), then see the pick/ban and watch the game live at 1×, 4× or 12× with a key-events or full log.
+2. **Draft (5 rounds)**: each round shows 3 random Worlds rosters (team + year, never repeated in a run) on a role-aligned board: every role starts at the same height in all three rosters, and rows for roles you already filled collapse to a slim line. "Your team" expands to show your picks as full player cards. Pick exactly one player for a role you haven't filled. Players in filled roles are greyed out. A roster with no eligible player is rerolled. The team rating, every synergy modifier and a radar chart (early game, teamfight, macro, pool depth, shotcalling, experience) update after each pick.
+3. **Tournament**: 15 real historical rosters at their real strength, never ones you were offered during the draft. Swiss rounds are Bo1, and matches where advancement or elimination is on the line are Bo3. Quarterfinals, semifinals and the final are Bo5. Watch your series game by game or skip to the end of a game or series. Before each of your games you choose a **draft**: Aggressive, Medium or Safe (below), then see the pick/ban and watch the game live at 1×, 4× or 12× with a key-events or full log.
 4. **Results**: placement, MVP, series history and a "share seed" link.
 
 **Determinism.** All randomness comes from a seeded PRNG (`src/lib/rng.ts`, mulberry32 with string hashing). Draft offers derive from `seed + round + picks so far`, and every game from `seed + series id + game number`. The same seed and the same picks replay the exact same run, independent of playback speed.
@@ -24,11 +24,11 @@ npm run build      # type-check + production build into dist/
 
 | Plan | Picks | Ban risk per planned pick |
 |---|---|---|
-| Best champions | top 2 of each player's pool that year | 42% |
-| Balanced | ranks 3–5 | 20% |
-| Deep pool | pocket picks (1–2 games that year) or the tail of the pool | 6% |
+| Aggressive | top 2 of each player's pool that year | 42% |
+| Medium | ranks 3–5 | 20% |
+| Safe | pocket picks (1–2 games that year) or the tail of the pool | 6% |
 
-Risk is scaled by how meta the champion is (`× (0.7 + 0.6·meta)`). A planned pick the opponent reads is banned first. A banned (or stolen) planned pick is replaced by a random low-pool (1–2 games) or off-pool champion, so the greedier the plan, the more often a few players end up on something they barely play. "Let the coach draft" uses the AI draft. Your plans are part of the run: the series and everything after it are re-simulated from them, deterministically.
+Risk is scaled by how meta the champion is (`× (0.7 + 0.6·meta)`). A planned pick the opponent reads is banned first. A banned (or stolen) planned pick is replaced by a random low-pool (1–2 games) or off-pool champion, so the greedier the plan, the more often a few players end up on something they barely play. You only choose the plan; picks, bans and replacements happen automatically. Simulating a stage without playing uses the AI draft. Your plans are part of the run: the series and everything after it are re-simulated from them, deterministically.
 
 ## Data
 

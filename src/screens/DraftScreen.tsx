@@ -39,6 +39,7 @@ export function DraftScreen({ cfg, onDone }: { cfg: RunConfig; onDone: (picks: D
   const [picks, setPicks] = useState<DraftPick[]>([]);
   const [offers, setOffers] = useState<Team[][]>(() => [offersForRound(cfg, 0, [], [])]);
   const [name, setName] = useState('');
+  const [showTeam, setShowTeam] = useState(false);
   const round = picks.length;
   const filled = new Set(picks.map((p) => p.player.role));
   const rating = useMemo(() => rateTeam(picks.map((p) => p.player), TEAMMATES), [picks]);
@@ -52,6 +53,7 @@ export function DraftScreen({ cfg, onDone }: { cfg: RunConfig; onDone: (picks: D
   };
 
   const progress = (
+    <div className="space-y-2">
     <div className="grid grid-cols-5 gap-1.5">
       {ROLES.map((r) => {
         const p = picks.find((x) => x.player.role === r)?.player;
@@ -65,6 +67,27 @@ export function DraftScreen({ cfg, onDone }: { cfg: RunConfig; onDone: (picks: D
           </div>
         );
       })}
+    </div>
+      {picks.length > 0 && (
+        <div className="card overflow-hidden">
+          <button className="flex w-full items-center justify-between px-4 py-2.5 text-left text-sm font-semibold hover:bg-white/[0.03]" onClick={() => setShowTeam((v) => !v)} aria-expanded={showTeam}>
+            <span>
+              Your team <span className="text-slate-500">({picks.length}/5)</span>
+            </span>
+            <span className="flex items-center gap-2 text-xs text-slate-400">
+              {showTeam ? 'Hide player cards' : 'Show player cards'}
+              <span className={`transition ${showTeam ? 'rotate-180' : ''}`}>▾</span>
+            </span>
+          </button>
+          {showTeam && (
+            <div className="grid gap-3 border-t border-white/[0.06] p-3 sm:grid-cols-2 2xl:grid-cols-3">
+              {ROLES.map((r) => picks.find((x) => x.player.role === r)?.player).filter(Boolean).map((p) => (
+                <PlayerCard key={p!.role} p={p!} />
+              ))}
+            </div>
+          )}
+        </div>
+      )}
     </div>
   );
 
@@ -100,7 +123,7 @@ export function DraftScreen({ cfg, onDone }: { cfg: RunConfig; onDone: (picks: D
       <div className="min-w-0 space-y-4">
         <SectionTitle
           kicker={`Draft · round ${round + 1} of 5`}
-          right={<span className="text-sm text-slate-400">Pick one player for an open role. Filled roles are greyed out.</span>}
+          right={<span className="text-sm text-slate-400">Pick one player for an open role. Filled roles collapse.</span>}
         >
           Choose a player
         </SectionTitle>
@@ -112,9 +135,32 @@ export function DraftScreen({ cfg, onDone }: { cfg: RunConfig; onDone: (picks: D
             {current.map((t) => (
               <OfferHeader key={t.id} t={t} />
             ))}
-            {ROLES.map((r) => (
+            {ROLES.map((r) =>
+              filled.has(r) ? (
+                // already-filled role: a slim row to save space
+                <div key={r} className="contents">
+                  <div className="flex items-center justify-center rounded-lg opacity-40" style={{ background: `linear-gradient(90deg, ${ROLE_COLOR[r]}22, transparent)` }} title={`${ROLE_NAME[r]} filled`}>
+                    <RoleIcon role={r} size={14} />
+                  </div>
+                  {current.map((t) => {
+                    const list = t.players.filter((p) => p.role === r);
+                    return (
+                      <div key={t.id + r} className="flex min-h-[30px] flex-wrap items-center gap-x-3 gap-y-1 rounded-lg border border-white/[0.04] bg-ink-900/40 px-3 py-1 text-xs text-slate-500">
+                        {list.length === 0 && <span className="text-slate-600">—</span>}
+                        {list.map((p) => (
+                          <span key={p.playerId} className="flex items-center gap-1.5">
+                            <span className="font-semibold text-slate-400">{p.handle}</span>
+                            <span className="tabular-nums">{rated(p).rating.strength}</span>
+                          </span>
+                        ))}
+                        <span className="ml-auto text-[10px] uppercase tracking-wider text-slate-600">{ROLE_NAME[r]} filled</span>
+                      </div>
+                    );
+                  })}
+                </div>
+              ) : (
               <div key={r} className="contents">
-                <div className={`flex flex-col items-center justify-center gap-1 rounded-xl ${filled.has(r) ? 'opacity-30' : ''}`} style={{ background: `linear-gradient(180deg, ${ROLE_COLOR[r]}22, transparent)` }}>
+                <div className="flex flex-col items-center justify-center gap-1 rounded-xl" style={{ background: `linear-gradient(180deg, ${ROLE_COLOR[r]}22, transparent)` }}>
                   <RoleIcon role={r} size={18} />
                   <span className="font-display text-xs font-bold tracking-wider text-slate-300 [writing-mode:vertical-rl]">{ROLE_NAME[r].toUpperCase()}</span>
                 </div>
@@ -125,14 +171,15 @@ export function DraftScreen({ cfg, onDone }: { cfg: RunConfig; onDone: (picks: D
                       {list.length === 0 && <div className="flex h-full min-h-[120px] items-center justify-center rounded-2xl border border-dashed border-white/10 text-xs text-slate-600">No {ROLE_NAME[r].toLowerCase()} on this roster</div>}
                       {list.map(({ p, i }) => (
                         <div key={p.playerId + p.role}>
-                          <PlayerCard variant="offer" p={rated(p)} onPick={() => pick(t, i)} disabled={filled.has(p.role)} />
+                          <PlayerCard variant="offer" p={rated(p)} onPick={() => pick(t, i)} />
                         </div>
                       ))}
                     </div>
                   );
                 })}
               </div>
-            ))}
+              ),
+            )}
           </div>
         </div>
       </div>
