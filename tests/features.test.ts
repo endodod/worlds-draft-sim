@@ -159,3 +159,15 @@ describe('fatigue and pressure', () => {
     expect(exp(teams[3].players[0])).toBeGreaterThan(exp(teams[0].players[0]) + 30);
   });
 });
+
+describe('draft rerolls', async () => {
+  const { offersForRound } = await import('../src/lib/run');
+  const cfg = { seed: 'RR', format: 'swiss' as const, fearless: true, years: [2011, 2026] as [number, number] };
+  it('a reroll gives three new rosters, deterministically', () => {
+    const first = offersForRound(cfg, 0, [], []);
+    const again = offersForRound(cfg, 0, [], first.map((t) => t.id), 1);
+    expect(again).toHaveLength(3);
+    expect(again.some((t) => first.some((f) => f.id === t.id))).toBe(false);
+    expect(offersForRound(cfg, 0, [], first.map((t) => t.id), 1).map((t) => t.id)).toEqual(again.map((t) => t.id));
+  });
+});

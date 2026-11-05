@@ -193,6 +193,12 @@ export const SIM = {
   map: (year: number) => ({ grubs: year >= 2024, herald: true, atakhan: year >= 2025, soul: year >= 2019 }),
 };
 
+// ---------- Player draft ----------
+export const PLAYER_DRAFT = {
+  /** rerolls of the three offered rosters per run */
+  rerolls: 3,
+};
+
 // ---------- Tournament ----------
 export const TOURNAMENT = {
   swissTeams: 16,

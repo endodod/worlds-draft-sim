@@ -38,3 +38,6 @@ body {
 .ping { transform-box: fill-box; transform-origin: center; animation: ping-ring 1.2s ease-out infinite; }
 @keyframes fade-up { from { opacity: 0; transform: translateY(6px) } to { opacity: 1; transform: none } }
 .fade-up { animation: fade-up .35s ease-out both; }
+@keyframes deal { 0% { opacity: 0; transform: translateY(14px) scale(.97) rotateX(12deg); filter: blur(2px) } 100% { opacity: 1; transform: none; filter: none } }
+.deal-card { animation: deal .42s cubic-bezier(.2,.8,.3,1) both; transform-origin: top center; }
+@media (prefers-reduced-motion: reduce) { .deal-card { animation: none; } }

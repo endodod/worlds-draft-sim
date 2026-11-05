@@ -1,4 +1,5 @@
-import { useMemo, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
+import { PLAYER_DRAFT } from '../config/balance';
 import { PlayerCard } from '../components/PlayerCard';
 import { TeamPanel } from '../components/TeamPanel';
 import { RegionBadge, ROLE_COLOR, ROLE_NAME, RoleIcon, SectionTitle } from '../components/atoms';
@@ -40,16 +41,43 @@ export function DraftScreen({ cfg, onDone }: { cfg: RunConfig; onDone: (picks: D
   const [offers, setOffers] = useState<Team[][]>(() => [offersForRound(cfg, 0, [], [])]);
   const [name, setName] = useState('');
   const [showTeam, setShowTeam] = useState(false);
+  const [rerolls, setRerolls] = useState(0);
+  const [discarded, setDiscarded] = useState<string[]>([]);
+  /** bumps on every new set of offers to replay the deal-in animation */
+  const [deal, setDeal] = useState(0);
+  const [dealing, setDealing] = useState(false);
+  useEffect(() => {
+    if (!deal) return;
+    setDealing(true);
+    const id = setTimeout(() => setDealing(false), 750);
+    return () => clearTimeout(id);
+  }, [deal]);
+  const rerollsLeft = PLAYER_DRAFT.rerolls - rerolls;
   const round = picks.length;
   const filled = new Set(picks.map((p) => p.player.role));
   const rating = useMemo(() => rateTeam(picks.map((p) => p.player), TEAMMATES), [picks]);
-  const shown = offers.flat().map((t) => t.id);
+  // every roster offered (including rerolled-away ones) is excluded from the opponents
+  const shown = [...offers.flat().map((t) => t.id), ...discarded];
 
   const pick = (team: Team, idx: number) => {
     const player = rated(team.players[idx]);
     const next = [...picks, { round, player }];
     setPicks(next);
-    if (next.length < 5) setOffers((o) => [...o, offersForRound(cfg, next.length, next, o.flat().map((t) => t.id))]);
+    if (next.length < 5) {
+      setOffers((o) => [...o, offersForRound(cfg, next.length, next, [...o.flat().map((t) => t.id), ...discarded])]);
+      setDeal((d) => d + 1);
+    }
+  };
+
+  /** Replace the three rosters of this round with new ones (3 per run). */
+  const reroll = () => {
+    if (rerollsLeft <= 0) return;
+    const used = rerolls + 1;
+    setRerolls(used);
+    const seen = [...offers.flat().map((t) => t.id), ...discarded];
+    setDiscarded((d) => [...d, ...(offers[round] ?? []).map((t) => t.id)]);
+    setOffers((o) => [...o.slice(0, round), offersForRound(cfg, round, picks, seen, used)]);
+    setDeal((d) => d + 1);
   };
 
   const progress = (
@@ -123,17 +151,31 @@ export function DraftScreen({ cfg, onDone }: { cfg: RunConfig; onDone: (picks: D
       <div className="min-w-0 space-y-4">
         <SectionTitle
           kicker={`Draft · round ${round + 1} of 5`}
-          right={<span className="text-sm text-slate-400">Pick one player for an open role. Filled roles collapse.</span>}
+          right={
+            <div className="flex items-center gap-3">
+              <span className="hidden text-sm text-slate-400 lg:inline">Pick one player for an open role. Filled roles collapse.</span>
+              <button className="btn-hex" onClick={reroll} disabled={rerollsLeft <= 0 || dealing} title="Replace these three rosters with new ones">
+                <span className={dealing ? 'inline-block animate-spin' : 'inline-block'}>⟳</span> Reroll
+                <span className="flex gap-0.5">
+                  {Array.from({ length: PLAYER_DRAFT.rerolls }, (_, i) => (
+                    <span key={i} className={`h-1.5 w-1.5 rounded-full ${i < rerollsLeft ? 'bg-hex-400' : 'bg-white/15'}`} />
+                  ))}
+                </span>
+              </button>
+            </div>
+          }
         >
           Choose a player
         </SectionTitle>
         {progress}
         <div className="scrollbar-thin -mx-4 overflow-x-auto px-4 pb-2">
           {/* role-aligned board: every role starts at the same height in all three rosters */}
-          <div className="grid min-w-[820px] grid-cols-[44px_repeat(3,minmax(0,1fr))] gap-x-3 gap-y-3">
+          <div key={deal} className={`deal-in grid min-w-[820px] grid-cols-[44px_repeat(3,minmax(0,1fr))] gap-x-3 gap-y-3 ${dealing ? 'pointer-events-none' : ''}`}>
             <div />
-            {current.map((t) => (
-              <OfferHeader key={t.id} t={t} />
+            {current.map((t, c) => (
+              <div key={t.id} className="deal-card" style={{ animationDelay: `${c * 70}ms` }}>
+                <OfferHeader t={t} />
+              </div>
             ))}
             {ROLES.map((r) =>
               filled.has(r) ? (
@@ -142,10 +184,10 @@ export function DraftScreen({ cfg, onDone }: { cfg: RunConfig; onDone: (picks: D
                   <div className="flex items-center justify-center rounded-lg opacity-40" style={{ background: `linear-gradient(90deg, ${ROLE_COLOR[r]}22, transparent)` }} title={`${ROLE_NAME[r]} filled`}>
                     <RoleIcon role={r} size={14} />
                   </div>
-                  {current.map((t) => {
+                  {current.map((t, c) => {
                     const list = t.players.filter((p) => p.role === r);
                     return (
-                      <div key={t.id + r} className="flex min-h-[30px] flex-wrap items-center gap-x-3 gap-y-1 rounded-lg border border-white/[0.04] bg-ink-900/40 px-3 py-1 text-xs text-slate-500">
+                      <div key={t.id + r} style={{ animationDelay: `${c * 70 + ROLES.indexOf(r) * 45}ms` }} className="deal-card flex min-h-[30px] flex-wrap items-center gap-x-3 gap-y-1 rounded-lg border border-white/[0.04] bg-ink-900/40 px-3 py-1 text-xs text-slate-500">
                         {list.length === 0 && <span className="text-slate-600">—</span>}
                         {list.map((p) => (
                           <span key={p.playerId} className="flex items-center gap-1.5">
@@ -164,10 +206,10 @@ export function DraftScreen({ cfg, onDone }: { cfg: RunConfig; onDone: (picks: D
                   <RoleIcon role={r} size={18} />
                   <span className="font-display text-xs font-bold tracking-wider text-slate-300 [writing-mode:vertical-rl]">{ROLE_NAME[r].toUpperCase()}</span>
                 </div>
-                {current.map((t) => {
+                {current.map((t, c) => {
                   const list = t.players.map((p, i) => ({ p, i })).filter((x) => x.p.role === r);
                   return (
-                    <div key={t.id + r} className="flex flex-col gap-2">
+                    <div key={t.id + r} className="deal-card flex flex-col gap-2" style={{ animationDelay: `${c * 70 + ROLES.indexOf(r) * 45}ms` }}>
                       {list.length === 0 && <div className="flex h-full min-h-[120px] items-center justify-center rounded-2xl border border-dashed border-white/10 text-xs text-slate-600">No {ROLE_NAME[r].toLowerCase()} on this roster</div>}
                       {list.map(({ p, i }) => (
                         <div key={p.playerId + p.role}>

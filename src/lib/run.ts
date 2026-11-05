@@ -24,12 +24,13 @@ export function eligiblePlayers(team: Team, filled: Set<Role>): RatedPlayer[] {
 /**
  * Three rosters for a draft round, deterministic from the seed and the picks so far.
  * Teams never repeat within a run; a team with no eligible player is rerolled.
+ * `reroll` (1..3) is the number of rerolls used so far, so a reroll gives new, still deterministic offers.
  */
-export function offersForRound(cfg: RunConfig, round: number, picks: DraftPick[], shownBefore: string[]): Team[] {
+export function offersForRound(cfg: RunConfig, round: number, picks: DraftPick[], shownBefore: string[], reroll = 0): Team[] {
   const filled = new Set(picks.map((p) => p.player.role));
   const used = new Set(shownBefore);
   const inRange = TEAMS.filter((t) => t.year >= cfg.years[0] && t.year <= cfg.years[1] && t.players.length >= 5);
-  const rng = makeRng(`${cfg.seed}|offers|${round}|${picks.map((p) => p.player.playerId).join(',')}`);
+  const rng = makeRng(`${cfg.seed}|offers|${round}|${picks.map((p) => p.player.playerId).join(',')}${reroll ? `|reroll${reroll}` : ''}`);
   // walk a seeded shuffle of the season range first; if it runs dry (small ranges), widen to all seasons
   const order = [...rng.shuffle([...inRange]), ...rng.shuffle(TEAMS.filter((t) => !inRange.includes(t)))];
   const out: Team[] = [];
