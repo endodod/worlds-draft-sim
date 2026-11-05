@@ -43,7 +43,8 @@ export function heuristicTags(p: PlayerSeason, table: ReturnType<typeof buildZTa
   if (p.role !== 'SUP' && zz('damageShare') >= PLAYSTYLE.carryDamageShareZ) tags.add('carry');
   const gs = p.stats.goldShare !== undefined ? zz('goldShare') : zz('damageShare');
   if (gs <= PLAYSTYLE.weaksideGoldShareZ && p.stats.kp >= PLAYSTYLE.weaksideMinKp) {
-    if (p.role === 'TOP' || p.role === 'BOT' || p.role === 'MID') tags.add('weakside');
+    // a lane bully isn't a weakside player, even on a low gold share
+    if ((p.role === 'TOP' || p.role === 'BOT' || p.role === 'MID') && !tags.has('lane_bully')) tags.add('weakside');
     else tags.add('enabler');
   }
   if (p.role === 'SUP' && zz('kp') > 0 && zz('kda') > 0) tags.add('enabler');
@@ -95,7 +96,11 @@ export function tagAll(players: PlayerSeason[], overrides: Overrides): void {
   const table = buildZTable(players);
   for (const p of players) {
     const tags = new Set<Playstyle>(heuristicTags(p, table));
-    for (const t of lookup(overrides.playstyles, p.handle) ?? []) tags.add(t);
+    const curated = lookup(overrides.playstyles, p.handle) ?? [];
+    for (const t of curated) tags.add(t);
+    // curated style wins over a contradicting stat tag
+    if (curated.includes('weakside') && !curated.includes('lane_bully')) tags.delete('lane_bully');
+    if (curated.includes('lane_bully') && !curated.includes('weakside')) tags.delete('weakside');
     if (isCuratedShotcaller(overrides, p.handle, p.year)) tags.add('shotcaller');
     else tags.delete('shotcaller');
     p.playstyle = [...tags];
