@@ -44,9 +44,9 @@ body {
 .deal-card { animation: deal .6s cubic-bezier(.2,.8,.3,1) both; transform-origin: top center; }
 /* old board leaves: cards shrink and fade, the picked card stays lit */
 @keyframes board-out { to { opacity: 0; transform: translateY(-10px) scale(.96); filter: blur(3px) } }
-.board-out .deal-card { animation: board-out .4s ease-in forwards !important; animation-delay: 0ms !important; }
+.board-out .deal-card { animation: board-out .22s ease-in forwards !important; animation-delay: 0ms !important; }
 .board-out .picked-card { position: relative; z-index: 5; }
-.board-out .deal-card:has(.picked-card) { animation: picked-out .4s ease-in forwards !important; }
+.board-out .deal-card:has(.picked-card) { animation: picked-out .22s ease-in forwards !important; }
 @keyframes picked-out { 0% { transform: scale(1); } 40% { transform: scale(1.04); opacity: 1 } 100% { transform: scale(.98); opacity: 0 } }
 .picked-card > * { box-shadow: 0 0 0 2px #e2c97e, 0 0 40px -6px rgba(226,201,126,.8); border-color: #e2c97e; }
 /* reload modal */
@@ -55,7 +55,7 @@ body {
 @keyframes modal-pop { 0% { opacity: 0; transform: translateY(6px) scale(.94) } 100% { opacity: 1; transform: none } }
 @keyframes modal-progress { from { width: 8% } to { width: 100% } }
 .modal-fade-in { animation: modal-fade-in .18s ease-out both; }
-.modal-fade-out { animation: modal-fade-out .9s ease-in both; pointer-events: none; }
-.modal-pop { animation: modal-pop .28s cubic-bezier(.2,.9,.3,1.15) both; }
-.modal-progress { animation: modal-progress .65s cubic-bezier(.4,0,.2,1) both; }
+.modal-fade-out { animation: modal-fade-out .45s ease-in both; pointer-events: none; }
+.modal-pop { animation: modal-pop .14s cubic-bezier(.2,.9,.3,1.15) both; }
+.modal-progress { animation: modal-progress .32s cubic-bezier(.4,0,.2,1) both; }
 @media (prefers-reduced-motion: reduce) { .deal-card, .board-out .deal-card, .modal-fade-in, .modal-fade-out, .modal-pop, .modal-progress { animation: none !important; } }
