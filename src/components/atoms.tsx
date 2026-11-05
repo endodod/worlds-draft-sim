@@ -77,7 +77,7 @@ export function Avatar({ handle, photoUrl, role, size = 56 }: { handle: string; 
 }
 
 const TAG_STYLE: Record<Playstyle, string> = {
-  shotcaller: 'bg-gold-500/20 text-gold-300 ring-1 ring-gold-500/30',
+  shotcaller: 'bg-gold-500/20 text-gold-300 shadow-[inset_0_0_0_1px_rgba(200,170,110,.35)]',
   carry: 'bg-rose-500/15 text-rose-300',
   weakside: 'bg-slate-500/15 text-slate-300',
   aggressive: 'bg-red-500/15 text-red-300',
@@ -90,15 +90,15 @@ const TAG_STYLE: Record<Playstyle, string> = {
   peeler: 'bg-cyan-500/15 text-cyan-300',
   engager: 'bg-amber-500/15 text-amber-300',
   objective_control: 'bg-purple-500/15 text-purple-300',
-  clutch: 'bg-yellow-400/15 text-yellow-200 ring-1 ring-yellow-400/30',
-  mistake_prone: 'bg-red-950/60 text-red-300 ring-1 ring-red-500/40',
-  weak_laner: 'bg-red-950/60 text-red-300 ring-1 ring-red-500/40',
-  one_trick: 'bg-red-950/60 text-red-300 ring-1 ring-red-500/40',
-  choker: 'bg-red-950/60 text-red-300 ring-1 ring-red-500/40',
-  passive: 'bg-red-950/60 text-red-300 ring-1 ring-red-500/40',
-  poor_vision: 'bg-red-950/60 text-red-300 ring-1 ring-red-500/40',
+  clutch: 'bg-yellow-400/15 text-yellow-200 shadow-[inset_0_0_0_1px_rgba(250,204,21,.3)]',
+  mistake_prone: 'bg-red-500/[0.14] text-red-300 shadow-[inset_0_0_0_1px_rgba(248,113,113,.28)]',
+  weak_laner: 'bg-red-500/[0.14] text-red-300 shadow-[inset_0_0_0_1px_rgba(248,113,113,.28)]',
+  one_trick: 'bg-red-500/[0.14] text-red-300 shadow-[inset_0_0_0_1px_rgba(248,113,113,.28)]',
+  choker: 'bg-red-500/[0.14] text-red-300 shadow-[inset_0_0_0_1px_rgba(248,113,113,.28)]',
+  passive: 'bg-red-500/[0.14] text-red-300 shadow-[inset_0_0_0_1px_rgba(248,113,113,.28)]',
+  poor_vision: 'bg-red-500/[0.14] text-red-300 shadow-[inset_0_0_0_1px_rgba(248,113,113,.28)]',
 };
-const TAG_LABEL: Partial<Record<Playstyle, string>> = { shotcaller: 'IGL', objective_control: 'objectives', vision_control: 'vision', lane_bully: 'lane bully', mistake_prone: '▼ mistakes', weak_laner: '▼ weak lane', one_trick: '▼ one-trick', choker: '▼ choker', passive: '▼ passive', poor_vision: '▼ low vision' };
+const TAG_LABEL: Partial<Record<Playstyle, string>> = { shotcaller: 'IGL', objective_control: 'objectives', vision_control: 'vision', lane_bully: 'lane bully', mistake_prone: 'mistakes', weak_laner: 'weak lane', one_trick: 'one-trick', choker: 'choker', passive: 'passive', poor_vision: 'low vision' };
 export const TAG_HELP: Record<Playstyle, string> = {
   shotcaller: 'Makes the calls (curated or the most likely caller on the roster)',
   carry: 'High damage share',
@@ -121,9 +121,15 @@ export const TAG_HELP: Record<Playstyle, string> = {
   passive: 'Liability: low kill participation. Team rating -1, weaker teamfights and ganks',
   poor_vision: 'Liability: low vision score for a jungler/support. Team rating -1, more picks and ganks against the team',
 };
+const NEGATIVE = new Set<Playstyle>(['mistake_prone', 'weak_laner', 'one_trick', 'choker', 'passive', 'poor_vision']);
 export function TagChip({ tag }: { tag: Playstyle }) {
   return (
-    <span className={`chip ${TAG_STYLE[tag]}`} title={TAG_HELP[tag]}>
+    <span className={`chip gap-1 ${TAG_STYLE[tag]}`} title={TAG_HELP[tag]}>
+      {NEGATIVE.has(tag) && (
+        <svg width="7" height="7" viewBox="0 0 8 8" aria-hidden="true" className="shrink-0">
+          <path d="M0 1.5h8L4 7z" fill="currentColor" />
+        </svg>
+      )}
       {TAG_LABEL[tag] ?? tag.replace('_', ' ')}
     </span>
   );

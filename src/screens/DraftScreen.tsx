@@ -235,6 +235,11 @@ export function DraftScreen({ cfg, onDone }: { cfg: RunConfig; onDone: (picks: D
                   return (
                     <div key={t.id + r} className="deal-card flex flex-col gap-2" style={{ animationDelay: dealDelay(c, ROLES.indexOf(r) + 1) }}>
                       {list.length === 0 && <div className="flex h-full min-h-[120px] items-center justify-center rounded-2xl border border-dashed border-white/10 text-xs text-slate-600">No {ROLE_NAME[r].toLowerCase()} on this roster</div>}
+                      {list.filter((_, k) => k === Math.min(alt[t.id + r] ?? 0, list.length - 1)).map(({ p, i }) => (
+                        <div key={p.playerId + p.role} className={`${pickedKey === t.id + p.playerId + p.role ? 'picked-card' : ''} ${list.length > 1 ? 'fade-up' : ''}`}>
+                          <PlayerCard variant="offer" p={rated(p)} onPick={() => pick(t, i)} />
+                        </div>
+                      ))}
                       {list.length > 1 && (
                         <div className="flex items-center gap-2">
                           <div className="seg flex-1">
@@ -249,11 +254,6 @@ export function DraftScreen({ cfg, onDone }: { cfg: RunConfig; onDone: (picks: D
                           </span>
                         </div>
                       )}
-                      {list.filter((_, k) => k === Math.min(alt[t.id + r] ?? 0, list.length - 1)).map(({ p, i }) => (
-                        <div key={p.playerId + p.role} className={`${pickedKey === t.id + p.playerId + p.role ? 'picked-card' : ''} ${list.length > 1 ? 'fade-up' : ''}`}>
-                          <PlayerCard variant="offer" p={rated(p)} onPick={() => pick(t, i)} />
-                        </div>
-                      ))}
                     </div>
                   );
                 })}
