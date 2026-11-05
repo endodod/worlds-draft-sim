@@ -55,6 +55,25 @@ export interface GameEvent {
   score: ScoreSnapshot;
   /** key moment: shown in the simple event log */
   major?: boolean;
+  /** players who died in this event */
+  deaths?: Actor[];
+}
+
+/** Approximate respawn timer (seconds) for a death at game time t: ~10 s early, ~60 s at 40 min. */
+export function respawnTime(t: number): number {
+  const m = t / 60;
+  return Math.min(70, 8 + m * 1.3 + Math.max(0, m - 25) * 0.8);
+}
+
+/** Players dead at event `idx`: deaths in this or earlier events whose respawn timer hasn't run out yet. */
+export function deadAt(events: GameEvent[], idx: number): Set<string> {
+  const now = events[idx]?.t ?? 0;
+  const dead = new Set<string>();
+  for (let i = Math.max(0, idx - 6); i <= idx; i++) {
+    const e = events[i];
+    for (const d of e.deaths ?? []) if (i === idx || e.t + respawnTime(e.t) > now) dead.add(`${d.side}-${d.idx}`);
+  }
+  return dead;
 }
 
 export interface ScoreSnapshot {
@@ -266,8 +285,12 @@ export class GameSim {
   }
   log(e: Omit<GameEvent, 't' | 'score' | 'text'> & { text: string }) {
     const major = e.major ?? (e.kind === 'end' || (e.kind === 'objective' && (e.objective === 'baron' || e.objective === 'elder' || e.objective === 'atakhan')) || /FIRST BLOOD|ACE|SOUL|inhibitor/.test(e.text));
-    this.events.push({ ...e, major, t: Math.round(this.t), text: `${this.stamp()} — ${e.text}`, score: this.snapshot() });
+    const deaths = this.pendingDeaths;
+    this.pendingDeaths = [];
+    this.events.push({ ...e, major, t: Math.round(this.t), text: `${this.stamp()} — ${e.text}`, score: this.snapshot(), ...(deaths.length ? { deaths } : {}) });
   }
+  /** victims since the last logged event (attached to the next event) */
+  pendingDeaths: Actor[] = [];
 
   /** Base logit for side 0 vs side 1 from team power, gold, buffs and noise. */
   baseLogit(noise = true): number {
@@ -301,6 +324,7 @@ export class GameSim {
     this.kills[side]++;
     this.lines[side][killer].k++;
     this.lines[opp][victim].d++;
+    this.pendingDeaths.push({ side: opp, idx: victim });
     for (const a of assists) if (a !== killer) this.lines[side][a].a++;
     this.addGold(side, SIM.killGold, killer);
     const fb = !this.firstBlood;

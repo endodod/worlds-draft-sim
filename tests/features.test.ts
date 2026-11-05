@@ -207,3 +207,19 @@ describe('negative traits and default pool', async () => {
     expect(Math.max(...def.map((o) => o.mastery))).toBeLessThan(Math.min(...own.map((o) => o.mastery)) * 0.6);
   });
 });
+
+describe('dead champions', async () => {
+  const { deadAt, simulateGame } = await import('../src/lib/game');
+  it('victims are dead in their death event and respawn after the timer', () => {
+    const input = sims();
+    const g = simulateGame({ ...input, year: 2025 }, makeRng('dead'));
+    const i = g.events.findIndex((e) => e.deaths?.length);
+    expect(i).toBeGreaterThan(-1);
+    const d = g.events[i].deaths![0];
+    expect(deadAt(g.events, i).has(`${d.side}-${d.idx}`)).toBe(true);
+    const later = g.events.findIndex((e, k) => k > i && e.t > g.events[i].t + 120 && !e.deaths?.some((x) => x.side === d.side && x.idx === d.idx));
+    if (later > 0) expect(deadAt(g.events, later).has(`${d.side}-${d.idx}`)).toBe(false);
+    const totalDeaths = g.events.reduce((a, e) => a + (e.deaths?.length ?? 0), 0);
+    expect(totalDeaths).toBe(g.final.kills[0] + g.final.kills[1]);
+  });
+});

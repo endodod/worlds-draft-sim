@@ -20,6 +20,8 @@ const HOME: [number, number][][] = [
   [[32, 9], [73, 42], [58, 42], [91, 66], [92, 72]],
 ];
 
+const FOUNTAIN: [number, number][] = [[6, 94], [94, 6]];
+
 export const TEAM_COLOR = ['#4c8dff', '#ff5a5f'] as const;
 
 export function mapUrl(): string {
@@ -75,14 +77,15 @@ export function RiftMap({ event, champs, names, dead, teamColors = TEAM_COLOR }:
         {/* champion tokens */}
         {([0, 1] as Side[]).map((s) =>
           [0, 1, 2, 3, 4].map((i) => {
-            const [x, y] = active.get(`${s}-${i}`) ?? HOME[s][i];
-            const isActive = active.has(`${s}-${i}`);
             const isDead = dead?.has(`${s}-${i}`);
+            // dead champions vanish and wait in their fountain, so they respawn from base instead of their death spot
+            const [x, y] = isDead ? FOUNTAIN[s] : active.get(`${s}-${i}`) ?? HOME[s][i];
+            const isActive = !isDead && active.has(`${s}-${i}`);
             return (
-              <g key={`${s}-${i}`} className="token" style={{ transform: `translate(${x}px, ${y}px)` }} opacity={isDead ? 0.35 : 1}>
+              <g key={`${s}-${i}`} className={`token ${isDead ? 'token-dead' : ''}`} style={{ transform: `translate(${x}px, ${y}px)` }} opacity={isDead ? 0 : 1} aria-hidden={isDead}>
                 <title>{names[s][i]} ({champs[s][i]})</title>
                 <circle r={isActive ? 4.1 : 3.7} fill={teamColors[s]} filter="url(#tok-shadow)" />
-                <image href={championIcon(champs[s][i])} x="-3.1" y="-3.1" width="6.2" height="6.2" clipPath={`url(#clip-${s}-${i})`} style={isDead ? { filter: 'grayscale(1)' } : undefined} />
+                <image href={championIcon(champs[s][i])} x="-3.1" y="-3.1" width="6.2" height="6.2" clipPath={`url(#clip-${s}-${i})`} />
                 {isActive && <circle r="4.1" fill="none" stroke="#fff" strokeWidth="0.35" opacity=".85" />}
               </g>
             );

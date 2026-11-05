@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
 import type { SeriesGame, SeriesTeam } from '../lib/series';
-import type { GameEvent } from '../lib/game';
+import { deadAt, type GameEvent } from '../lib/game';
 import { GoldGraph, RiftMap, TEAM_COLOR } from './RiftMap';
 import { ChampIcon, RoleIcon, TIER_STYLE } from './atoms';
 
@@ -36,6 +36,7 @@ export function GameView({ game, teams, onFinished, onSkipSeries }: { game: Seri
   }, [idx, simple]);
 
   const current = ev[idx];
+  const dead = useMemo(() => deadAt(ev, idx), [ev, idx]);
   const champs = useMemo(() => [0, 1].map((s) => [0, 1, 2, 3, 4].map((i) => game.draft.picks[s].find((p) => p.playerIdx === i)?.champion ?? '')) as [string[], string[]], [game]);
   const names = [blue.players.map((p) => p.handle), red.players.map((p) => p.handle)] as [string[], string[]];
   const sc = current.score;
@@ -69,7 +70,7 @@ export function GameView({ game, teams, onFinished, onSkipSeries }: { game: Seri
 
       <div className="grid gap-3 lg:grid-cols-[minmax(0,1.15fr)_minmax(0,1fr)]">
         <div className="space-y-3">
-          <RiftMap event={current} champs={champs} names={names} />
+          <RiftMap event={current} champs={champs} names={names} dead={dead} />
           <GoldGraph data={game.result.gold} upTo={current.t} labels={[blue.short, red.short]} />
         </div>
         <div className="flex min-h-0 flex-col gap-3">
@@ -81,7 +82,7 @@ export function GameView({ game, teams, onFinished, onSkipSeries }: { game: Seri
                   const cond = game.result.conditions?.[s]?.[i];
                   const k = sc.kda?.[s]?.[i] ?? [0, 0, 0];
                   return (
-                    <div key={p.handle + i} className="flex items-center gap-1.5" title={cond?.notes.join(' · ')}>
+                    <div key={p.handle + i} className={`flex items-center gap-1.5 transition ${dead.has(`${s}-${i}`) ? 'opacity-40 grayscale' : ''}`} title={dead.has(`${s}-${i}`) ? 'dead (respawning)' : cond?.notes.join(' · ')}>
                       <ChampIcon name={champs[s][i]} size={24} ring={pk ? TIER_STYLE[pk.tier].color + '88' : undefined} />
                       <RoleIcon role={p.role} size={10} />
                       <span className="min-w-0 flex-1 truncate text-[12px] font-semibold">{p.handle}</span>

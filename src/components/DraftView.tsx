@@ -4,7 +4,6 @@ import type { SeriesTeam } from '../lib/series';
 import { TEAM_COLOR } from './RiftMap';
 import { ChampIcon, RoleIcon, TIER_STYLE } from './atoms';
 
-const PLAN_NAME = { comfort: 'Aggressive', balanced: 'Medium', deep: 'Safe' } as const;
 
 export function DraftView({ draft, teams, fearless }: { draft: DraftResult; teams: [SeriesTeam, SeriesTeam]; fearless: boolean }) {
   return (
@@ -29,22 +28,6 @@ export function DraftView({ draft, teams, fearless }: { draft: DraftResult; team
                     <ChampIcon key={b} name={b} size={26} dim />
                   ))}
                 </div>
-                {report && (
-                  <div className="rounded-xl border border-gold-500/30 bg-gold-500/[0.06] px-3 py-2 text-[11px]">
-                    <span className="font-semibold text-gold-400">Your draft: {PLAN_NAME[report.plan]}</span>
-                    {report.entries.filter((e) => e.status !== 'ok').length === 0 ? (
-                      <span className="text-slate-400"> · every planned pick got through</span>
-                    ) : (
-                      <span className="text-slate-300">
-                        {' · '}
-                        {report.entries
-                          .filter((e) => e.status !== 'ok')
-                          .map((e) => `${e.planned} ${e.status === 'banned' ? 'banned' : 'taken'} → ${e.final}`)
-                          .join(' · ')}
-                      </span>
-                    )}
-                  </div>
-                )}
                 <div className="space-y-1.5">
                   {draft.picks[s].map((pk) => {
                     const pl = teams[s].players[pk.playerIdx];
@@ -62,7 +45,7 @@ export function DraftView({ draft, teams, fearless }: { draft: DraftResult; team
                           <div className="flex flex-wrap items-center gap-x-2 text-[10px] text-slate-500">
                             <span style={{ color: tier.color }}>{tier.label}</span>
                             <span>{pk.games ? `${pk.games} games this year` : 'never played this year'}</span>
-                            <span>mastery {(pk.mastery * 100).toFixed(0)}</span>
+                            <span>mastery {Math.min(100, Math.round(pk.mastery * 100))}</span>
                             {pk.combo && <span className="text-hex-400">combo with {pk.combo.join(', ')}</span>}
                             {entry && entry.status !== 'ok' && <span className="text-orange-400">planned {entry.planned} ({entry.status})</span>}
                           </div>
