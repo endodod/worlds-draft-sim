@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import { PLAYER_DRAFT } from '../config/balance';
 import { PlayerCard } from '../components/PlayerCard';
 import { TeamPanel } from '../components/TeamPanel';
@@ -36,6 +36,11 @@ function OfferHeader({ t }: { t: Team }) {
   );
 }
 
+const OUT_MS = 420;
+const POP_MS = 1300;
+/** deal-in delay per card: banner shows first, then columns left to right, roles top to bottom */
+const dealDelay = (col: number, row: number) => `${260 + col * 110 + row * 70}ms`;
+
 export function DraftScreen({ cfg, onDone }: { cfg: RunConfig; onDone: (picks: DraftPick[], shown: string[], name: string) => void }) {
   const [picks, setPicks] = useState<DraftPick[]>([]);
   const [offers, setOffers] = useState<Team[][]>(() => [offersForRound(cfg, 0, [], [])]);
@@ -45,13 +50,27 @@ export function DraftScreen({ cfg, onDone }: { cfg: RunConfig; onDone: (picks: D
   const [discarded, setDiscarded] = useState<string[]>([]);
   /** bumps on every new set of offers to replay the deal-in animation */
   const [deal, setDeal] = useState(0);
-  const [dealing, setDealing] = useState(false);
-  useEffect(() => {
-    if (!deal) return;
-    setDealing(true);
-    const id = setTimeout(() => setDealing(false), 750);
-    return () => clearTimeout(id);
-  }, [deal]);
+  /** out: old rosters fly away · pop: banner + new rosters deal in · idle */
+  const [phase, setPhase] = useState<'idle' | 'out' | 'pop'>('idle');
+  const [pop, setPop] = useState<{ title: string; sub: string } | null>(null);
+  const [pickedKey, setPickedKey] = useState<string | null>(null);
+  const timers = useRef<number[]>([]);
+  useEffect(() => () => timers.current.forEach(clearTimeout), []);
+  const dealing = phase !== 'idle';
+  /** Plays the transition: old board out (OUT_MS), then apply the change, show the pop and deal the new board in. */
+  const transition = (banner: { title: string; sub: string }, apply: () => void) => {
+    setPhase('out');
+    setPop(banner);
+    timers.current.push(
+      window.setTimeout(() => {
+        apply();
+        setPickedKey(null);
+        setDeal((d) => d + 1);
+        setPhase('pop');
+        timers.current.push(window.setTimeout(() => setPhase('idle'), POP_MS));
+      }, OUT_MS),
+    );
+  };
   const rerollsLeft = PLAYER_DRAFT.rerolls - rerolls;
   const round = picks.length;
   const filled = new Set(picks.map((p) => p.player.role));
@@ -60,24 +79,30 @@ export function DraftScreen({ cfg, onDone }: { cfg: RunConfig; onDone: (picks: D
   const shown = [...offers.flat().map((t) => t.id), ...discarded];
 
   const pick = (team: Team, idx: number) => {
+    if (dealing) return;
     const player = rated(team.players[idx]);
     const next = [...picks, { round, player }];
-    setPicks(next);
-    if (next.length < 5) {
-      setOffers((o) => [...o, offersForRound(cfg, next.length, next, [...o.flat().map((t) => t.id), ...discarded])]);
-      setDeal((d) => d + 1);
+    if (next.length >= 5) {
+      setPicks(next);
+      return;
     }
+    setPickedKey(team.id + player.playerId + player.role);
+    transition({ title: `${player.handle} locked in`, sub: `Round ${next.length + 1} of 5 · new rosters` }, () => {
+      setPicks(next);
+      setOffers((o) => [...o, offersForRound(cfg, next.length, next, [...o.flat().map((t) => t.id), ...discarded])]);
+    });
   };
 
   /** Replace the three rosters of this round with new ones (3 per run). */
   const reroll = () => {
-    if (rerollsLeft <= 0) return;
+    if (rerollsLeft <= 0 || dealing) return;
     const used = rerolls + 1;
-    setRerolls(used);
     const seen = [...offers.flat().map((t) => t.id), ...discarded];
-    setDiscarded((d) => [...d, ...(offers[round] ?? []).map((t) => t.id)]);
-    setOffers((o) => [...o.slice(0, round), offersForRound(cfg, round, picks, seen, used)]);
-    setDeal((d) => d + 1);
+    transition({ title: 'Rerolled', sub: `${PLAYER_DRAFT.rerolls - used} reroll${PLAYER_DRAFT.rerolls - used === 1 ? '' : 's'} left` }, () => {
+      setRerolls(used);
+      setDiscarded((d) => [...d, ...(offers[round] ?? []).map((t) => t.id)]);
+      setOffers((o) => [...o.slice(0, round), offersForRound(cfg, round, picks, seen, used)]);
+    });
   };
 
   const progress = (
@@ -168,12 +193,24 @@ export function DraftScreen({ cfg, onDone }: { cfg: RunConfig; onDone: (picks: D
           Choose a player
         </SectionTitle>
         {progress}
+        <div className="relative">
+        {phase !== 'idle' && pop && (
+          <div className="pointer-events-none absolute inset-x-0 top-24 z-20 flex justify-center">
+            <div key={deal + phase} className={`${phase === 'out' ? 'pop-in' : 'pop-out'} flex items-center gap-3 rounded-2xl border border-gold-500/50 bg-ink-900/95 px-6 py-4 shadow-glow backdrop-blur`}>
+              <span className="pop-spin text-3xl text-gold-400">⟳</span>
+              <div>
+                <div className="font-display text-3xl font-bold uppercase leading-none tracking-wide text-white">{pop.title}</div>
+                <div className="mt-1 text-xs font-semibold uppercase tracking-[0.16em] text-gold-400">{pop.sub}</div>
+              </div>
+            </div>
+          </div>
+        )}
         <div className="scrollbar-thin -mx-4 overflow-x-auto px-4 pb-2">
           {/* role-aligned board: every role starts at the same height in all three rosters */}
-          <div key={deal} className={`deal-in grid min-w-[820px] grid-cols-[44px_repeat(3,minmax(0,1fr))] gap-x-3 gap-y-3 ${dealing ? 'pointer-events-none' : ''}`}>
+          <div key={deal} className={`grid min-w-[820px] grid-cols-[44px_repeat(3,minmax(0,1fr))] gap-x-3 gap-y-3 ${dealing ? 'pointer-events-none' : ''} ${phase === 'out' ? 'board-out' : ''}`}>
             <div />
             {current.map((t, c) => (
-              <div key={t.id} className="deal-card" style={{ animationDelay: `${c * 70}ms` }}>
+              <div key={t.id} className="deal-card" style={{ animationDelay: dealDelay(c, 0) }}>
                 <OfferHeader t={t} />
               </div>
             ))}
@@ -187,7 +224,7 @@ export function DraftScreen({ cfg, onDone }: { cfg: RunConfig; onDone: (picks: D
                   {current.map((t, c) => {
                     const list = t.players.filter((p) => p.role === r);
                     return (
-                      <div key={t.id + r} style={{ animationDelay: `${c * 70 + ROLES.indexOf(r) * 45}ms` }} className="deal-card flex min-h-[30px] flex-wrap items-center gap-x-3 gap-y-1 rounded-lg border border-white/[0.04] bg-ink-900/40 px-3 py-1 text-xs text-slate-500">
+                      <div key={t.id + r} style={{ animationDelay: dealDelay(c, ROLES.indexOf(r) + 1) }} className="deal-card flex min-h-[30px] flex-wrap items-center gap-x-3 gap-y-1 rounded-lg border border-white/[0.04] bg-ink-900/40 px-3 py-1 text-xs text-slate-500">
                         {list.length === 0 && <span className="text-slate-600">—</span>}
                         {list.map((p) => (
                           <span key={p.playerId} className="flex items-center gap-1.5">
@@ -209,10 +246,10 @@ export function DraftScreen({ cfg, onDone }: { cfg: RunConfig; onDone: (picks: D
                 {current.map((t, c) => {
                   const list = t.players.map((p, i) => ({ p, i })).filter((x) => x.p.role === r);
                   return (
-                    <div key={t.id + r} className="deal-card flex flex-col gap-2" style={{ animationDelay: `${c * 70 + ROLES.indexOf(r) * 45}ms` }}>
+                    <div key={t.id + r} className="deal-card flex flex-col gap-2" style={{ animationDelay: dealDelay(c, ROLES.indexOf(r) + 1) }}>
                       {list.length === 0 && <div className="flex h-full min-h-[120px] items-center justify-center rounded-2xl border border-dashed border-white/10 text-xs text-slate-600">No {ROLE_NAME[r].toLowerCase()} on this roster</div>}
                       {list.map(({ p, i }) => (
-                        <div key={p.playerId + p.role}>
+                        <div key={p.playerId + p.role} className={pickedKey === t.id + p.playerId + p.role ? 'picked-card' : ''}>
                           <PlayerCard variant="offer" p={rated(p)} onPick={() => pick(t, i)} />
                         </div>
                       ))}
@@ -223,6 +260,7 @@ export function DraftScreen({ cfg, onDone }: { cfg: RunConfig; onDone: (picks: D
               ),
             )}
           </div>
+        </div>
         </div>
       </div>
       <div className="xl:sticky xl:top-20 xl:self-start">
