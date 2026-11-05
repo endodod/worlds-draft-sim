@@ -100,6 +100,7 @@ export default function App() {
             stageIdx={stageIdx}
             onPlay={(s) => setScreen({ name: 'series', s, watch: true, back: 'tournament' })}
             onSimStage={() => setStageIdx((i) => i + 1)}
+            onSimTo={(i) => setStageIdx((cur) => Math.max(cur, i))}
             onOpen={(s) => setScreen({ name: 'series', s, watch: false, back: 'tournament' })}
             onResults={() => setScreen({ name: 'results' })}
           />

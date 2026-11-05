@@ -1,3 +1,4 @@
+import { useState } from 'react';
 import type { SeriesResult } from '../lib/series';
 import type { Standing, Tournament } from '../lib/tournament';
 
@@ -68,7 +69,96 @@ export function Bracket({ t, revealed, onOpen }: { t: Tournament; revealed: numb
   );
 }
 
-export function TournamentScreen({ t, stageIdx, onPlay, onSimStage, onOpen, onResults }: { t: Tournament; stageIdx: number; onPlay: (s: SeriesResult) => void; onSimStage: () => void; onOpen: (s: SeriesResult) => void; onResults: () => void }) {
+/** Recap after simulating the whole Swiss / group stage at once. */
+function StageSummary({ t, from, onOpen, onClose }: { t: Tournament; from: number; onOpen: (s: SeriesResult) => void; onClose: () => void }) {
+  const rounds = t.rounds.slice(from);
+  const all = rounds.flatMap((r) => r.series);
+  const mine = all.filter((s) => isUser(s, t.userId));
+  const final = t.rounds[t.rounds.length - 1].standingsAfter;
+  const me = final.find((s) => s.teamId === t.userId)!;
+  const byId = new Map(t.teams.map((x) => [x.id, x]));
+  const advanced = final.filter((s) => s.status === 'advanced').sort((a, b) => a.losses - b.losses || b.wins - a.wins);
+  const upsets = all
+    .map((s) => ({ s, gap: s.teams[1 - s.winner].rating - s.teams[s.winner].rating }))
+    .filter((x) => x.gap > 4)
+    .sort((a, b) => b.gap - a.gap)
+    .slice(0, 3);
+  const through = me.status === 'advanced';
+  const stageName = t.format === 'swiss' ? 'Swiss stage' : 'Group stage';
+  return (
+    <div className={`card fade-up relative overflow-hidden p-5 ${through ? 'border-emerald-500/40' : 'border-rose-500/40'}`}>
+      <div className={`pointer-events-none absolute inset-0 ${through ? 'bg-[radial-gradient(500px_160px_at_0%_0%,rgba(16,185,129,.12),transparent)]' : 'bg-[radial-gradient(500px_160px_at_0%_0%,rgba(244,63,94,.12),transparent)]'}`} />
+      <div className="relative flex flex-wrap items-start justify-between gap-3">
+        <div>
+          <div className="label">{stageName} simulated · summary</div>
+          <div className="display mt-1 text-3xl text-white">
+            {through ? 'Through to the knockouts' : 'Eliminated'} <span className="font-mono text-2xl text-slate-400">{me.wins}-{me.losses}</span>
+          </div>
+        </div>
+        <button className="btn-ghost !px-3 !py-1 text-xs" onClick={onClose}>
+          Close
+        </button>
+      </div>
+      <div className="relative mt-4 grid gap-4 md:grid-cols-3">
+        <div>
+          <div className="label mb-1.5">Your matches</div>
+          {mine.length === 0 && <div className="text-sm text-slate-500">No simulated matches.</div>}
+          <div className="space-y-1">
+            {mine.map((s) => {
+              const ui = s.teams.findIndex((x) => x.isUser);
+              const win = s.winner === ui;
+              return (
+                <button key={s.id} onClick={() => onOpen(s)} className="flex w-full items-center gap-2 rounded-lg px-2 py-1 text-left text-sm hover:bg-white/[0.05]">
+                  <span className={`w-5 font-black ${win ? 'text-emerald-400' : 'text-rose-400'}`}>{win ? 'W' : 'L'}</span>
+                  <span className="min-w-0 flex-1 truncate">vs {s.teams[1 - ui].name}</span>
+                  <span className="font-mono text-xs text-slate-400">
+                    {s.score[ui]}-{s.score[1 - ui]}
+                  </span>
+                </button>
+              );
+            })}
+          </div>
+        </div>
+        <div>
+          <div className="label mb-1.5">Qualified ({advanced.length})</div>
+          <div className="grid grid-cols-2 gap-x-3 gap-y-0.5 text-sm">
+            {advanced.map((s) => {
+              const team = byId.get(s.teamId)!;
+              return (
+                <div key={s.teamId} className={`flex justify-between gap-1 truncate ${team.isUser ? 'text-gold-400' : 'text-slate-300'}`}>
+                  <span className="truncate">{team.name}</span>
+                  <span className="shrink-0 font-mono text-xs text-slate-500">
+                    {s.wins}-{s.losses}
+                  </span>
+                </div>
+              );
+            })}
+          </div>
+        </div>
+        <div>
+          <div className="label mb-1.5">Biggest upsets</div>
+          {upsets.length === 0 && <div className="text-sm text-slate-500">The favourites held.</div>}
+          <div className="space-y-1">
+            {upsets.map(({ s, gap }) => (
+              <button key={s.id} onClick={() => onOpen(s)} className="w-full rounded-lg px-2 py-1 text-left text-sm hover:bg-white/[0.05]">
+                <span className="font-semibold text-white">{s.teams[s.winner].name}</span> <span className="text-slate-500">beat</span> {s.teams[1 - s.winner].name}
+                <span className="ml-1 text-[11px] text-orange-300">(−{gap.toFixed(0)} rating)</span>
+              </button>
+            ))}
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+export function TournamentScreen({ t, stageIdx, onPlay, onSimStage, onSimTo, onOpen, onResults }: { t: Tournament; stageIdx: number; onPlay: (s: SeriesResult) => void; onSimStage: () => void; onSimTo: (stageIdx: number) => void; onOpen: (s: SeriesResult) => void; onResults: () => void }) {
+  const [summaryFrom, setSummaryFrom] = useState<number | null>(null);
+  const inGroups = stageIdx < t.rounds.length;
+  const simGroups = () => {
+    setSummaryFrom(stageIdx);
+    onSimTo(t.rounds.length);
+  };
   const stages = stagesOf(t);
   const finished = stageIdx >= stages.length;
   const current = stages[stageIdx];
@@ -95,17 +185,28 @@ export function TournamentScreen({ t, stageIdx, onPlay, onSimStage, onOpen, onRe
               <button className="btn-primary" onClick={() => onPlay(mine)}>
                 ▶ Play your {mine.bestOf > 1 ? `Bo${mine.bestOf}` : 'Bo1'} vs {mine.teams.find((x) => !x.isUser)!.name}
               </button>
-              <button className="btn-ghost" onClick={onSimStage}>
-                Sim this stage
-              </button>
+              {inGroups && (
+                <button className="btn-ghost" onClick={simGroups}>
+                  ⏩ Sim {t.format === 'swiss' ? 'Swiss' : 'group'} stage
+                </button>
+              )}
             </>
           ) : (
-            <button className="btn-primary" onClick={onSimStage}>
-              Simulate {current.name}
-            </button>
+            <>
+              <button className="btn-primary" onClick={onSimStage}>
+                Simulate {current.name}
+              </button>
+              {inGroups && stageIdx < t.rounds.length - 1 && (
+                <button className="btn-ghost" onClick={simGroups}>
+                  ⏩ Sim {t.format === 'swiss' ? 'Swiss' : 'group'} stage
+                </button>
+              )}
+            </>
           )}
         </div>
       </div>
+
+      {summaryFrom !== null && !inGroups && <StageSummary t={t} from={summaryFrom} onOpen={onOpen} onClose={() => setSummaryFrom(null)} />}
 
       <div className="grid gap-4 lg:grid-cols-[1fr_340px]">
         <div className="space-y-4">
