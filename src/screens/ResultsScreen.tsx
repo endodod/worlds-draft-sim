@@ -30,10 +30,11 @@ export function ResultsScreen({ t, cfg, onOpen, onNew }: { t: Tournament; cfg: R
   };
   return (
     <div className="mx-auto max-w-5xl space-y-4 px-4 py-8">
-      <div className={`card p-6 text-center ${won ? 'border-amber-500/60 bg-amber-500/10' : ''}`}>
-        <div className="text-5xl">{won ? '🏆' : t.userPlacement === 'Finalist' ? '🥈' : '🎮'}</div>
-        <div className="mt-2 text-sm uppercase tracking-wider text-slate-400">{user.name} finished</div>
-        <div className="text-4xl font-black">{t.userPlacement}</div>
+      <div className={`card relative overflow-hidden p-8 text-center ${won ? 'border-gold-500/60 shadow-glow' : ''}`}>
+        <div className="pointer-events-none absolute inset-0 bg-[radial-gradient(500px_200px_at_50%_0%,rgba(200,170,110,.18),transparent)]" />
+        <div className="relative text-6xl">{won ? '🏆' : t.userPlacement === 'Finalist' ? '🥈' : '🎮'}</div>
+        <div className="label relative mt-3">{user.name} finished</div>
+        <div className={`display relative text-5xl ${won ? 'bg-gradient-to-r from-gold-300 to-gold-500 bg-clip-text text-transparent' : 'text-white'}`}>{t.userPlacement}</div>
         {!won && <div className="mt-1 text-slate-400">World Champion: {champ.name}</div>}
         <div className="mt-4 flex flex-wrap justify-center gap-2">
           <button className="btn-primary" onClick={share}>
@@ -49,7 +50,7 @@ export function ResultsScreen({ t, cfg, onOpen, onNew }: { t: Tournament; cfg: R
       </div>
       <div className="grid gap-4 md:grid-cols-[320px_1fr]">
         <div className="space-y-2">
-          <h3 className="font-bold">MVP</h3>
+          <h3 className="display text-xl text-white">MVP</h3>
           {m && (
             <>
               <PlayerCard p={user.players.find((p) => p.handle === m.handle)!} />
@@ -60,14 +61,14 @@ export function ResultsScreen({ t, cfg, onOpen, onNew }: { t: Tournament; cfg: R
           )}
         </div>
         <div>
-          <h3 className="mb-2 font-bold">Series history</h3>
+          <h3 className="display mb-2 text-xl text-white">Series history</h3>
           <div className="space-y-1">
             {history.map((s) => {
               const ui = s.teams.findIndex((x) => x.isUser);
               const opp = s.teams[1 - ui];
               const win = s.winner === ui;
               return (
-                <button key={s.id} onClick={() => onOpen(s)} className="card flex w-full items-center gap-3 p-2 text-left text-sm hover:bg-slate-800">
+                <button key={s.id} onClick={() => onOpen(s)} className="card flex w-full items-center gap-3 p-2.5 text-left text-sm transition hover:border-white/20">
                   <span className={`w-6 text-center font-black ${win ? 'text-emerald-400' : 'text-rose-400'}`}>{win ? 'W' : 'L'}</span>
                   <span className="w-40 shrink-0 text-slate-400">{s.stage}</span>
                   <span className="flex-1 truncate">vs {opp.name}</span>

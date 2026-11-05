@@ -1,6 +1,10 @@
 import { TOURNAMENT } from '../config/balance';
 import { makeRng } from './rng';
 import { simulateSeries, type SeriesResult, type SeriesTeam } from './series';
+import type { DraftPlan } from './draft';
+
+/** seriesId -> the user's draft plan per game */
+export type UserPlans = Record<string, (DraftPlan | undefined)[]>;
 
 export type Format = 'swiss' | 'groups';
 
@@ -49,7 +53,8 @@ export function pairWithoutRematch(ids: string[], played: Set<string>): [string,
 
 const byId = (teams: SeriesTeam[]) => new Map(teams.map((t) => [t.id, t]));
 
-export function runTournament(teams: SeriesTeam[], format: Format, seed: string, fearless: boolean): Tournament {
+export function runTournament(teams: SeriesTeam[], format: Format, seed: string, fearless: boolean, plans: UserPlans = {}): Tournament {
+  const sim = (id: string, stage: string, pair: [SeriesTeam, SeriesTeam], bo: number) => simulateSeries(id, stage, pair, bo, seed, fearless, plans[id]);
   const user = teams.find((t) => t.isUser)!;
   const rng = makeRng(`${seed}|draw`);
   const map = byId(teams);
@@ -75,7 +80,7 @@ export function runTournament(teams: SeriesTeam[], format: Format, seed: string,
           played.add([a, b].sort().join('|'));
           const [w, l] = rec.split('-').map(Number);
           const decisive = w === TOURNAMENT.swissWinsToAdvance - 1 || l === TOURNAMENT.swissLossesToElim - 1;
-          const res = simulateSeries(`swiss-r${r}-${a}-${b}`, `Swiss R${r} (${rec})`, [map.get(a)!, map.get(b)!], decisive ? 3 : 1, seed, fearless);
+          const res = sim(`swiss-r${r}-${a}-${b}`, `Swiss R${r} (${rec})`, [map.get(a)!, map.get(b)!], decisive ? 3 : 1);
           series.push(res);
           const win = st.get(res.teams[res.winner].id)!;
           const lose = st.get(res.teams[1 - res.winner].id)!;
@@ -100,7 +105,7 @@ export function runTournament(teams: SeriesTeam[], format: Format, seed: string,
       groups.forEach((g, gi) => {
         for (let i = 0; i < g.length; i++)
           for (let j = i + 1; j < g.length; j++) {
-            const res = simulateSeries(`grp${gi}-l${leg}-${g[i].id}-${g[j].id}`, `Group ${'ABCD'[gi]} · leg ${leg}`, leg === 1 ? [g[i], g[j]] : [g[j], g[i]], 1, seed, fearless);
+            const res = sim(`grp${gi}-l${leg}-${g[i].id}-${g[j].id}`, `Group ${'ABCD'[gi]} · leg ${leg}`, leg === 1 ? [g[i], g[j]] : [g[j], g[i]], 1);
             series.push(res);
             st.get(res.teams[res.winner].id)!.wins++;
             st.get(res.teams[1 - res.winner].id)!.losses++;
@@ -128,7 +133,7 @@ export function runTournament(teams: SeriesTeam[], format: Format, seed: string,
   const seeded = format === 'swiss' ? [qualified[0], qualified[7], qualified[3], qualified[4], qualified[1], qualified[6], qualified[2], qualified[5]] : qualified;
   const ko = (ids: string[], stage: string) => {
     const out: SeriesResult[] = [];
-    for (let i = 0; i + 1 < ids.length; i += 2) out.push(simulateSeries(`${stage}-${i / 2}`, stage, [map.get(ids[i])!, map.get(ids[i + 1])!], 5, seed, fearless));
+    for (let i = 0; i + 1 < ids.length; i += 2) out.push(sim(`${stage}-${i / 2}`, stage, [map.get(ids[i])!, map.get(ids[i + 1])!], 5));
     return out;
   };
   const qf = ko(seeded, 'Quarterfinals');

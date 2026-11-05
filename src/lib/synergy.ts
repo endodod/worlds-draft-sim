@@ -1,4 +1,6 @@
-import { SYNERGY } from '../config/balance';
+import { DUO, POOL, SYNERGY } from '../config/balance';
+import { teamDuos } from './duo';
+import { tierOf } from './draft';
 import type { RatedPlayer, Team } from './types';
 
 export interface Modifier {
@@ -124,6 +126,30 @@ export function computeSynergy(players: RatedPlayer[], index: TeammateIndex, com
   const fighters = players.filter((p) => has(p, 'teamfighter'));
   if (splitters.length >= 1 && fighters.length >= SYNERGY.splitpushMinTeamfighters)
     mods.push({ id: 'split', label: '1-3-1 threat', value: SYNERGY.splitpushTeamfight, reason: `${splitters[0].handle} splits while ${fighters.map((f) => f.handle).join(', ')} hold 4v4s.` });
+  // --- duos: playstyle fit of bot lane and jungle links (familiarity is already counted in "played together")
+  for (const d of teamDuos(players, index)) {
+    const v = r1(d.style * DUO.styleToRating);
+    if (Math.abs(v) < 0.3) continue;
+    mods.push({ id: `duo-${d.key}`, label: `${d.label}: ${d.a.handle} + ${d.b.handle}`, value: v, reason: d.reasons.filter((r) => !/games together|teammates in/.test(r)).join('; ') });
+  }
+  // --- champion pools
+  if (players.length) {
+    const comfortCount = (p: RatedPlayer) => p.champions.filter((c) => c.games >= POOL.comfortGames).length;
+    const avgComfort = players.reduce((a, p) => a + comfortCount(p), 0) / players.length;
+    if (complete && avgComfort < POOL.shallowBelow)
+      mods.push({ id: 'pool', label: 'Shallow champion pools', value: POOL.shallowPenalty, reason: `Only ${avgComfort.toFixed(1)} comfort champions per player: fearless and target bans hurt.` });
+    else if (complete && avgComfort > POOL.deepAbove)
+      mods.push({ id: 'pool', label: 'Deep champion pools', value: POOL.deepBonus, reason: `${avgComfort.toFixed(1)} comfort champions per player: hard to ban out, fearless-proof.` });
+    const sig = (p: RatedPlayer) => [...p.champions].sort((a, b) => b.games - a.games).filter((c, i) => tierOf(c.games, i) === 'signature').map((c) => c.name);
+    const clashes: string[] = [];
+    for (let i = 0; i < players.length; i++)
+      for (let j = i + 1; j < players.length; j++) {
+        const shared = sig(players[i]).filter((c) => sig(players[j]).includes(c));
+        if (shared.length) clashes.push(`${players[i].handle} & ${players[j].handle} (${shared.join(', ')})`);
+      }
+    if (clashes.length)
+      mods.push({ id: 'pool-overlap', label: 'Signature picks overlap', value: r1(POOL.overlapPenalty * clashes.length), reason: `Both want the same champions: ${clashes.join('; ')}.` });
+  }
   return mods;
 }
 
@@ -135,6 +161,7 @@ export interface TeamRating {
   radar: Radar;
 }
 export interface Radar {
+  experience: number;
   earlyGame: number;
   teamfight: number;
   macro: number;
@@ -143,9 +170,9 @@ export interface Radar {
 }
 
 export function poolDepthScore(p: RatedPlayer): number {
-  // number of "comfortable" champions weighted by games (0..100)
-  const solid = p.champions.reduce((a, c) => a + Math.min(1, c.games / 3) * (0.5 + c.winRate), 0);
-  return Math.max(0, Math.min(100, Math.round(solid * 16)));
+  // comfortable champions that year (>= 3 games, weighted by win rate), plus a little for pocket picks (0..100)
+  const solid = p.champions.reduce((a, c) => a + (c.games >= 3 ? 0.6 + 0.8 * c.winRate : 0.15), 0);
+  return Math.max(0, Math.min(100, Math.round(solid * 8)));
 }
 
 export function rateTeam(players: RatedPlayer[], index: TeammateIndex): TeamRating {
@@ -156,6 +183,7 @@ export function rateTeam(players: RatedPlayer[], index: TeammateIndex): TeamRati
   const avg = (f: (p: RatedPlayer) => number) => (players.length ? players.reduce((a, p) => a + f(p), 0) / players.length : 0);
   const callers = players.filter((p) => p.playstyle.includes('shotcaller')).length;
   const radar: Radar = {
+    experience: Math.round(avg((p) => p.rating.experience ?? 50)),
     earlyGame: Math.round(avg((p) => 0.65 * p.rating.laning + 0.35 * p.rating.aggression)),
     teamfight: Math.round(Math.min(100, avg((p) => p.rating.teamfight) + 4 * players.filter((p) => p.playstyle.includes('teamfighter')).length)),
     macro: Math.round(Math.min(100, avg((p) => 0.5 * p.rating.results + 0.3 * p.rating.vision + 0.2 * p.rating.impact) + (callers === 1 ? 10 : callers === 0 ? -15 : -5))),

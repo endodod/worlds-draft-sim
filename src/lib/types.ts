@@ -13,7 +13,11 @@ export type Playstyle =
   | 'splitpusher'
   | 'lane_bully'
   | 'enabler'
-  | 'vision_control';
+  | 'vision_control'
+  | 'peeler'
+  | 'engager'
+  | 'objective_control'
+  | 'clutch';
 
 export type DataQuality = 'scraped' | 'estimated';
 
@@ -40,6 +44,27 @@ export interface ChampionPick {
   winRate: number;
 }
 
+export interface SeasonEvent {
+  event: string; // "LCK", "MSI", "Worlds", ...
+  games: number;
+  winRate: number;
+}
+
+/** Raw (unadjusted) full-year numbers for display plus team-context data. */
+export interface SeasonSummary {
+  games: number;
+  winRate: number;
+  kda: number;
+  kp: number;
+  dpm?: number;
+  cspm: number;
+  events: SeasonEvent[];
+  /** share of dragons / heralds+grubs / barons taken by the player's team in games they played */
+  objectives?: { dragonShare: number; heraldShare: number; baronShare: number };
+  /** teammate playerId -> games played together on the same side this year */
+  duos: Record<string, number>;
+}
+
 export interface PlayerSeason {
   playerId: string;
   handle: string;
@@ -53,6 +78,10 @@ export interface PlayerSeason {
   playstyle: Playstyle[];
   champions: ChampionPick[];
   dataQuality: DataQuality;
+  /** full-year summary (absent when only Worlds data exists) */
+  season?: SeasonSummary;
+  /** Worlds-only stats and champions, kept when `stats`/`champions` hold full-year numbers */
+  worlds?: { stats: PlayerStats; champions: ChampionPick[] };
   /** stat fields that are derived/estimated rather than scraped directly */
   estimatedFields?: string[];
 }
@@ -82,6 +111,8 @@ export interface StrengthBreakdown {
   aggression: number;
   vision: number;
   teamfight: number;
+  /** big-stage experience at that point of the career, 0..100 (prior Worlds, career games, international games that year) */
+  experience?: number;
 }
 
 export interface RatedPlayer extends PlayerSeason {

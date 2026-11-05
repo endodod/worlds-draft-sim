@@ -9,7 +9,9 @@
     "preview": "vite preview",
     "test": "vitest run",
     "seed": "tsx scripts/build-seed.ts",
-    "scrape": "NODE_USE_ENV_PROXY=1 tsx scripts/scrape.ts"
+    "scrape": "NODE_USE_ENV_PROXY=1 tsx scripts/scrape.ts",
+    "scrape:season": "NODE_USE_ENV_PROXY=1 tsx scripts/scrape-season.ts",
+    "retag": "tsx scripts/retag.ts"
   },
   "dependencies": {
     "react": "^18.3.1",

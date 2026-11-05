@@ -22,7 +22,8 @@ import fs from 'node:fs';
 import path from 'node:path';
 import * as cheerio from 'cheerio';
 import type { ChampionPick, Placement, PlayerSeason, PlayerStats, Region, Role, Team } from '../src/lib/types';
-import { DATA_DIR, ROOT, ROLES, estimateStats, readSeedRosters, seedTeams, slug, writeData } from './lib/common';
+import { DATA_DIR, ROLES, estimateStats, readSeedRosters, seedTeams, slug, writeData } from './lib/common';
+import { CACHE, UA, allPages, cacheKey, fetchText, handleOf, noCache, num, params, parseScoreboards, wikitext, clean, API, type Game } from './lib/wiki';
 
 const SEED = readSeedRosters();
 /** Last-resort region guess from well-known team names (used only when no roster box or seed roster matches). */
@@ -43,13 +44,8 @@ function REGION_BY_NAME(name: string): Region {
   return 'other';
 }
 
-const UA = 'worlds-draft-sim-scraper/1.0 (League of Legends fan project; https://github.com/)';
-const API = 'https://lol.fandom.com/api.php';
-const CACHE = path.join(ROOT, 'scripts/.cache');
 const args = process.argv.slice(2);
-const noCache = args.includes('--no-cache');
 const CURRENT_YEAR = 2026;
-const DELAY_MS = 1200;
 
 function parseYears(): number[] {
   const i = args.indexOf('--years');
@@ -60,62 +56,6 @@ function parseYears(): number[] {
     return Array.from({ length: b - a + 1 }, (_, k) => a + k);
   }
   return v.split(',').map(Number);
-}
-
-const sleep = (ms: number) => new Promise((r) => setTimeout(r, ms));
-fs.mkdirSync(CACHE, { recursive: true });
-
-async function fetchText(url: string, cacheName?: string, timeoutMs = 30000): Promise<string> {
-  const file = cacheName ? path.join(CACHE, cacheName) : undefined;
-  if (file && !noCache && fs.existsSync(file)) return fs.readFileSync(file, 'utf8');
-  for (let attempt = 0; attempt < 5; attempt++) {
-    try {
-      const ctrl = new AbortController();
-      const t = setTimeout(() => ctrl.abort(), timeoutMs);
-      const res = await fetch(url, { headers: { 'user-agent': UA }, signal: ctrl.signal });
-      clearTimeout(t);
-      const text = await res.text();
-      if (res.status === 429 || text.includes('"ratelimited"')) throw new Error('rate limited');
-      if (!res.ok) throw new Error(`HTTP ${res.status}`);
-      if (file) fs.writeFileSync(file, text);
-      await sleep(DELAY_MS);
-      return text;
-    } catch (e) {
-      const wait = 2000 * 2 ** attempt;
-      console.warn(`  fetch failed (${(e as Error).message}) ${url.slice(0, 120)} — retry in ${wait / 1000}s`);
-      await sleep(wait);
-    }
-  }
-  throw new Error(`giving up on ${url}`);
-}
-
-const cacheKey = (s: string) => s.replace(/[^a-zA-Z0-9]+/g, '_').slice(0, 180);
-
-async function wikitext(titles: string[]): Promise<Record<string, string | null>> {
-  const out: Record<string, string | null> = {};
-  for (let i = 0; i < titles.length; i += 40) {
-    const batch = titles.slice(i, i + 40);
-    const url = `${API}?action=query&format=json&prop=revisions&rvprop=content&rvslots=main&redirects=1&titles=${encodeURIComponent(batch.join('|'))}`;
-    const j = JSON.parse(await fetchText(url, 'wt_' + cacheKey(batch.join('|')) + '.json'));
-    const norm = new Map<string, string>();
-    for (const n of [...(j.query?.normalized ?? []), ...(j.query?.redirects ?? [])]) norm.set(n.to, n.from);
-    for (const p of Object.values<any>(j.query?.pages ?? {})) {
-      const content = p.revisions?.[0]?.slots?.main?.['*'] ?? null;
-      let title = p.title;
-      out[title] = content;
-      while (norm.has(title)) {
-        title = norm.get(title)!;
-        out[title] = content;
-      }
-    }
-  }
-  return out;
-}
-
-async function allPages(prefix: string): Promise<string[]> {
-  const url = `${API}?action=query&format=json&list=allpages&aplimit=500&apprefix=${encodeURIComponent(prefix)}`;
-  const j = JSON.parse(await fetchText(url, 'ap_' + cacheKey(prefix) + '.json'));
-  return (j.query?.allpages ?? []).map((p: any) => p.title);
 }
 
 async function pageImages(titles: string[]): Promise<Record<string, string>> {
@@ -140,18 +80,6 @@ async function pageImages(titles: string[]): Promise<Record<string, string>> {
 }
 
 // ---------------- wikitext parsing ----------------
-const clean = (s: string) => s.replace(/<!--.*?-->/gs, '').trim();
-/** "Zest (Kim Dong-min)" -> "Zest" */
-const handleOf = (link: string) => link.replace(/\s*\(.*\)\s*$/, '').trim();
-
-function params(block: string): Record<string, string> {
-  const out: Record<string, string> = {};
-  const re = /\|\s*([a-zA-Z0-9_]+)\s*=\s*([^|{}\n]*)/g;
-  let m;
-  while ((m = re.exec(block))) if (!(m[1] in out)) out[m[1]] = m[2].trim();
-  return out;
-}
-
 interface RosterTeam {
   code: string;
   region: Region;
@@ -202,79 +130,6 @@ function parseResults(text: string): Map<string, number> {
     if (place) out.set(p.team.trim(), place);
   }
   return out;
-}
-
-interface GamePlayer {
-  link: string;
-  champion: string;
-  kills: number;
-  deaths: number;
-  assists: number;
-  gold: number;
-  cs: number;
-  vision?: number;
-  damage?: number;
-}
-interface Game {
-  team: [string, string];
-  winner: 1 | 2;
-  minutes: number;
-  kills: [number, number];
-  gold: [number, number];
-  bans: string[];
-  players: [GamePlayer[], GamePlayer[]];
-  stage: string;
-}
-function num(v: string | undefined): number | undefined {
-  if (v === undefined || v === '') return undefined;
-  const n = Number(v.replace(/,/g, ''));
-  return Number.isFinite(n) ? n : undefined;
-}
-function parseScoreboards(text: string, stage: string): Game[] {
-  const games: Game[] = [];
-  const parts = clean(text).split(/\{\{Scoreboard\/Season[^|]*\|/).slice(1);
-  for (const part of parts) {
-    const head = params('|' + part); // game-level keys (team1, team2, winner, gamelength, bans) never clash with player keys
-    const len = head.gamelength ?? '';
-    const [mm, ss] = len.split(':').map(Number);
-    const minutes = mm + (ss || 0) / 60;
-    if (!head.team1 || !head.team2 || !minutes) continue;
-    const players: [GamePlayer[], GamePlayer[]] = [[], []];
-    for (const [side, idx] of [['blue', 0], ['red', 1]] as const) {
-      for (let i = 1; i <= 5; i++) {
-        const m = new RegExp(`\\|${side}${i}\\s*=\\s*\\{\\{Scoreboard/Player\\|([\\s\\S]*?)(\\|runes=|\\}\\})`).exec(part);
-        if (!m) continue;
-        const p = params('|' + m[1]);
-        if (!p.link || !p.champion) continue;
-        players[idx].push({
-          link: p.link,
-          champion: p.champion,
-          kills: num(p.kills) ?? 0,
-          deaths: num(p.deaths) ?? 0,
-          assists: num(p.assists) ?? 0,
-          gold: num(p.gold) ?? 0,
-          cs: num(p.cs) ?? 0,
-          vision: num(p.visionscore),
-          damage: num(p.damagetochamps),
-        });
-      }
-    }
-    if (players[0].length !== 5 || players[1].length !== 5) continue;
-    const bans = Object.entries(head).filter(([k, v]) => /^team[12]ban\d$/.test(k) && v && v !== 'None').map(([, v]) => v);
-    const k1 = num(head.team1k) ?? players[0].reduce((a, p) => a + p.kills, 0);
-    const k2 = num(head.team2k) ?? players[1].reduce((a, p) => a + p.kills, 0);
-    games.push({
-      team: [head.team1, head.team2],
-      winner: head.winner === '2' ? 2 : 1,
-      minutes,
-      kills: [k1, k2],
-      gold: [num(head.team1g) ?? players[0].reduce((a, p) => a + p.gold, 0), num(head.team2g) ?? players[1].reduce((a, p) => a + p.gold, 0)],
-      bans,
-      players,
-      stage,
-    });
-  }
-  return games;
 }
 
 // ---------------- gol.gg (best effort) ----------------

@@ -69,11 +69,36 @@ export function rateAll(teams: Team[]): Map<string, RatedPlayer> {
     const sd = Math.sqrt(arr.reduce((a, b) => a + (b - mean) ** 2, 0) / (arr.length - 1)) || 1;
     return Math.max(-3, Math.min(3, (s - mean) / sd));
   };
+  const exp = experienceIndex(teams);
   const out = new Map<string, RatedPlayer>();
   for (const t of teams)
     for (const p of t.players)
-      out.set(seasonKey(p), { ...p, rating: computeStrength(p, table, t.worldsPlacement, placementZ), teamName: t.name, teamShort: t.shortName });
+      out.set(seasonKey(p), { ...p, rating: { ...computeStrength(p, table, t.worldsPlacement, placementZ), experience: exp(p) }, teamName: t.name, teamShort: t.shortName });
   return out;
+}
+
+const INTL = new Set(['Worlds', 'MSI', 'First Stand']);
+
+/**
+ * Big-stage experience (0..100) of a player season:
+ *   12 per earlier Worlds appearance + career games / 10 (earlier seasons + this one) + international games this year / 3
+ * A rookie at their first Worlds lands around 10-20, a multi-year veteran at 60+, Faker-like careers at 100.
+ */
+export function experienceIndex(teams: Team[]): (p: PlayerSeason) => number {
+  const career = new Map<string, { year: number; games: number }[]>();
+  for (const t of teams)
+    for (const p of t.players) {
+      const list = career.get(p.playerId) ?? [];
+      if (!list.some((x) => x.year === p.year)) list.push({ year: p.year, games: p.season?.games ?? p.stats.gamesPlayed });
+      career.set(p.playerId, list);
+    }
+  return (p) => {
+    const list = career.get(p.playerId) ?? [];
+    const prior = list.filter((x) => x.year < p.year);
+    const games = prior.reduce((a, x) => a + x.games, 0) + (p.season?.games ?? p.stats.gamesPlayed);
+    const intl = p.season ? p.season.events.filter((e) => INTL.has(e.event)).reduce((a, e) => a + e.games, 0) : p.stats.gamesPlayed;
+    return Math.max(0, Math.min(100, Math.round(12 * prior.length + games / 10 + intl / 3)));
+  };
 }
 
 export const seasonKey = (p: Pick<PlayerSeason, 'playerId' | 'teamId' | 'role'>) => `${p.playerId}@${p.teamId}#${p.role}`;

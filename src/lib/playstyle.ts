@@ -1,6 +1,7 @@
 import type { Playstyle, PlayerSeason } from './types';
 import { PLAYSTYLE } from '../config/balance';
-import { buildZTable, z } from './stats';
+import { buildZTable, meanSd, z } from './stats';
+import { championAttrs } from './champions';
 
 export interface Overrides {
   shotcallers: Record<string, 'all' | number[]>;
@@ -20,10 +21,23 @@ export function isCuratedShotcaller(o: Overrides, handle: string, year: number):
   return v === 'all' || (Array.isArray(v) && v.includes(year));
 }
 
-/** Heuristic tags from role-normalized stats for a single player season. */
+/** Share of a player's games on champions with a given attribute >= 4 (from the hand-made table / Data Dragon tags). */
+export function poolShare(p: Pick<PlayerSeason, 'champions'>, test: (a: ReturnType<typeof championAttrs>) => boolean): number {
+  const total = p.champions.reduce((s, c) => s + c.games, 0);
+  if (!total) return 0;
+  return p.champions.filter((c) => test(championAttrs(c.name))).reduce((s, c) => s + c.games, 0) / total;
+}
+
+/**
+ * Heuristic tags from role-normalized stats for a single player season.
+ * Every z-score is multiplied by a sample factor games/(games+tagShrinkK): a full year (40-160 games) keeps
+ * ~85-95% of its signal, a 5-game Worlds-only sample keeps a third, so tags only stick when the data supports them.
+ */
 export function heuristicTags(p: PlayerSeason, table: ReturnType<typeof buildZTable>): Playstyle[] {
   const tags = new Set<Playstyle>();
-  const zz = (k: Parameters<typeof z>[2]) => z(table, p, k);
+  const games = p.stats.gamesPlayed;
+  const rel = games / (games + PLAYSTYLE.tagShrinkK);
+  const zz = (k: Parameters<typeof z>[2]) => rel * z(table, p, k);
   const lane = (zz('gd15') + zz('csd15')) / 2;
   if (p.role !== 'SUP' && p.role !== 'JNG' && lane >= PLAYSTYLE.laneBullyZ) tags.add('lane_bully');
   if (p.role !== 'SUP' && zz('damageShare') >= PLAYSTYLE.carryDamageShareZ) tags.add('carry');
@@ -39,6 +53,19 @@ export function heuristicTags(p: PlayerSeason, table: ReturnType<typeof buildZTa
   if ((p.role === 'SUP' || p.role === 'JNG') && zz('visionPerMin') >= PLAYSTYLE.visionZ) tags.add('vision_control');
   if (zz('kp') >= PLAYSTYLE.teamfighterKpZ && p.role !== 'JNG') tags.add('teamfighter');
   if (p.role === 'TOP' && zz('kp') <= PLAYSTYLE.splitpushKpZ && lane > 0) tags.add('splitpusher');
+  // champion-pool identity (needs a real sample of games)
+  if (games >= PLAYSTYLE.poolTagMinGames) {
+    if (p.role === 'SUP' || p.role === 'JNG') {
+      if (poolShare(p, (a) => a.engage >= 4) >= PLAYSTYLE.engagerShare) tags.add('engager');
+    }
+    if (p.role === 'SUP' && poolShare(p, (a) => a.peel >= 4) >= PLAYSTYLE.peelerShare) tags.add('peeler');
+  }
+  // big-stage performer: clearly better at Worlds than over the rest of the year
+  const w = p.worlds?.stats;
+  if (w && p.season && w.gamesPlayed >= PLAYSTYLE.clutchMinWorldsGames) {
+    const kdaRatio = w.kda / Math.max(0.5, p.season.kda);
+    if (kdaRatio >= PLAYSTYLE.clutchKdaRatio && w.winRate >= p.season.winRate - 0.02) tags.add('clutch');
+  }
   return [...tags];
 }
 
@@ -56,6 +83,23 @@ export function tagAll(players: PlayerSeason[], overrides: Overrides): void {
     if (isCuratedShotcaller(overrides, p.handle, p.year)) tags.add('shotcaller');
     else tags.delete('shotcaller');
     p.playstyle = [...tags];
+  }
+  // objective control: junglers whose teams take a clearly larger share of dragons/heralds/barons
+  const objScore = (p: PlayerSeason) => {
+    const o = p.season?.objectives;
+    return o ? 0.45 * o.dragonShare + 0.35 * o.heraldShare + 0.2 * o.baronShare : undefined;
+  };
+  const byYear = new Map<number, number[]>();
+  for (const p of players) {
+    const s = p.role === 'JNG' ? objScore(p) : undefined;
+    if (s !== undefined) byYear.set(p.year, [...(byYear.get(p.year) ?? []), s]);
+  }
+  for (const p of players) {
+    const s = p.role === 'JNG' ? objScore(p) : undefined;
+    const ref = byYear.get(p.year);
+    if (s === undefined || !ref || ref.length < 6 || (p.season?.games ?? 0) < PLAYSTYLE.poolTagMinGames) continue;
+    const { mean, sd } = meanSd(ref);
+    if ((s - mean) / sd >= PLAYSTYLE.objectiveZ && !p.playstyle.includes('objective_control')) p.playstyle.push('objective_control');
   }
   const byTeam = new Map<string, PlayerSeason[]>();
   for (const p of players) {

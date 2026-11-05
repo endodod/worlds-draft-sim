@@ -31,6 +31,10 @@ export function championAttrs(name: string): ChampionAttrs {
   return Object.fromEntries(KEYS.map((k, i) => [k, arr[i]])) as unknown as ChampionAttrs;
 }
 
+export function championTags(name: string): string[] {
+  return DD.champions[name]?.tags ?? [];
+}
+
 export function hasHandAttrs(name: string) {
   return name in ATTRS;
 }
@@ -60,3 +64,40 @@ export function roleMeta(year: number, role: Role): string[] {
 }
 
 export { KEYS as ATTR_KEYS };
+
+/**
+ * Known champion pairings (lane duos, wombo combos). Bonus is a fraction of draft value added when both are on one team.
+ * Kept small and conservative: draft value is mostly mastery and meta.
+ */
+const COMBOS: [string, string, number][] = [
+  ['Xayah', 'Rakan', 0.12], ['Kalista', 'Thresh', 0.08], ['Kalista', 'Renata Glasc', 0.08], ['Kalista', 'Rell', 0.06],
+  ['Lucian', 'Nami', 0.1], ['Lucian', 'Braum', 0.08], ['Ezreal', 'Karma', 0.06], ['Varus', 'Alistar', 0.06],
+  ['Jinx', 'Lulu', 0.08], ['Kog\'Maw', 'Lulu', 0.1], ['Twitch', 'Lulu', 0.08], ['Aphelios', 'Thresh', 0.06],
+  ['Caitlyn', 'Lux', 0.07], ['Caitlyn', 'Morgana', 0.06], ['Draven', 'Leona', 0.07], ['Samira', 'Nautilus', 0.08],
+  ['Senna', 'Tahm Kench', 0.08], ['Zeri', 'Yuumi', 0.08], ['Kai\'Sa', 'Nautilus', 0.07], ['Ashe', 'Sett', 0.05],
+  ['Yasuo', 'Gragas', 0.08], ['Yasuo', 'Alistar', 0.06], ['Yasuo', 'Diana', 0.06], ['Yone', 'Diana', 0.05],
+  ['Orianna', 'Jarvan IV', 0.08], ['Orianna', 'Nocturne', 0.06], ['Galio', 'Camille', 0.05], ['Twisted Fate', 'Nocturne', 0.06],
+  ['Taliyah', 'Malphite', 0.06], ['Azir', 'Rell', 0.04], ['Miss Fortune', 'Amumu', 0.06], ['Miss Fortune', 'Leona', 0.05],
+];
+const COMBO_MAP = new Map<string, number>();
+for (const [a, b, v] of COMBOS) {
+  COMBO_MAP.set(`${a}|${b}`, v);
+  COMBO_MAP.set(`${b}|${a}`, v);
+}
+/** Combo bonus for adding `champ` to a team that already has `current`, plus the partner names. */
+export function comboBonus(champ: string, current: string[]): { bonus: number; with: string[] } {
+  let bonus = 0;
+  const w: string[] = [];
+  for (const c of current) {
+    const v = COMBO_MAP.get(`${champ}|${c}`);
+    if (v) {
+      bonus += v;
+      w.push(c);
+    }
+  }
+  return { bonus, with: w };
+}
+
+export function ddragonVersion(): string {
+  return DD.version ?? DDRAGON_VERSION;
+}

@@ -21,13 +21,13 @@ const isUser = (s: SeriesResult, uid: string) => s.teams.some((t) => t.id === ui
 
 function SeriesRow({ s, uid, onOpen }: { s: SeriesResult; uid: string; onOpen?: () => void }) {
   return (
-    <button onClick={onOpen} disabled={!onOpen} className={`grid w-full grid-cols-[1fr_auto_1fr] items-center gap-2 rounded px-2 py-1 text-left text-sm ${isUser(s, uid) ? 'bg-amber-500/10' : ''} ${onOpen ? 'hover:bg-slate-800' : ''}`}>
-      <span className={`truncate text-right ${s.winner === 0 ? 'font-bold' : 'text-slate-500'} ${s.teams[0].isUser ? 'text-amber-300' : ''}`}>{s.teams[0].name}</span>
-      <span className="font-mono tabular-nums text-slate-300">
+    <button onClick={onOpen} disabled={!onOpen} className={`grid w-full grid-cols-[1fr_auto_1fr] items-center gap-2 rounded-lg px-2 py-1.5 text-left text-sm transition ${isUser(s, uid) ? 'bg-gold-500/10 ring-1 ring-gold-500/30' : ''} ${onOpen ? 'hover:bg-white/[0.05]' : ''}`}>
+      <span className={`truncate text-right ${s.winner === 0 ? 'font-semibold text-white' : 'text-slate-500'} ${s.teams[0].isUser ? '!text-gold-400' : ''}`}>{s.teams[0].name}</span>
+      <span className="rounded-md bg-ink-950/80 px-2 py-0.5 font-mono tabular-nums text-slate-200">
         {s.score[0]}–{s.score[1]}
         {s.bestOf > 1 && <span className="ml-1 text-[10px] text-slate-500">Bo{s.bestOf}</span>}
       </span>
-      <span className={`truncate ${s.winner === 1 ? 'font-bold' : 'text-slate-500'} ${s.teams[1].isUser ? 'text-amber-300' : ''}`}>{s.teams[1].name}</span>
+      <span className={`truncate ${s.winner === 1 ? 'font-semibold text-white' : 'text-slate-500'} ${s.teams[1].isUser ? '!text-gold-400' : ''}`}>{s.teams[1].name}</span>
     </button>
   );
 }
@@ -39,24 +39,24 @@ export function Bracket({ t, revealed, onOpen }: { t: Tournament; revealed: numb
     ['Final', t.bracket.final, t.rounds.length + 2],
   ];
   return (
-    <div className="card overflow-x-auto p-3">
-      <h3 className="mb-2 font-bold">Knockout bracket (Bo5)</h3>
+    <div className="card overflow-x-auto p-4">
+      <h3 className="display mb-3 text-xl text-white">Knockout bracket <span className="text-sm text-slate-500">Bo5</span></h3>
       <div className="grid min-w-[640px] grid-cols-3 gap-3">
         {cols.map(([name, list, stageIdx]) => (
           <div key={name} className="flex flex-col justify-around gap-2">
-            <div className="text-center text-[11px] uppercase tracking-wider text-slate-500">{name}</div>
+            <div className="label text-center">{name}</div>
             {list.map((s) =>
               revealed > stageIdx ? (
-                <div key={s.id} className="rounded-lg border border-slate-800 bg-slate-950/60">
+                <div key={s.id} className="overflow-hidden rounded-xl border border-white/[0.07] bg-ink-950/70">
                   {[0, 1].map((i) => (
-                    <button key={i} onClick={() => onOpen(s)} className={`flex w-full items-center justify-between px-2 py-1 text-sm hover:bg-slate-800 ${s.winner === i ? 'font-bold' : 'text-slate-500'} ${s.teams[i].isUser ? 'text-amber-300' : ''}`}>
+                    <button key={i} onClick={() => onOpen(s)} className={`flex w-full items-center justify-between px-3 py-1.5 text-sm hover:bg-white/[0.05] ${i === 0 ? 'border-b border-white/[0.05]' : ''} ${s.winner === i ? 'font-semibold text-white' : 'text-slate-500'} ${s.teams[i].isUser ? '!text-gold-400' : ''}`}>
                       <span className="truncate">{s.teams[i].name}</span>
                       <span className="tabular-nums">{s.score[i]}</span>
                     </button>
                   ))}
                 </div>
               ) : (
-                <div key={s.id} className="rounded-lg border border-dashed border-slate-800 px-2 py-3 text-center text-xs text-slate-600">
+                <div key={s.id} className="rounded-xl border border-dashed border-white/10 px-2 py-3.5 text-center text-xs text-slate-500">
                   {revealed === stageIdx ? `${s.teams[0].short} vs ${s.teams[1].short}` : 'TBD'}
                 </div>
               ),
@@ -78,13 +78,14 @@ export function TournamentScreen({ t, stageIdx, onPlay, onSimStage, onOpen, onRe
   const userOut = !finished && !mine && stageIdx > 0 && !stages.slice(stageIdx).some((s) => s.series.some((x) => isUser(x, t.userId)));
   return (
     <div className="mx-auto max-w-7xl space-y-4 px-4 py-6">
-      <div className="card flex flex-wrap items-center justify-between gap-3 p-4">
-        <div>
-          <div className="text-[11px] uppercase tracking-wider text-slate-500">{t.format === 'swiss' ? 'Swiss stage → Knockouts' : 'Group stage → Knockouts'}</div>
-          <h2 className="text-2xl font-black">{finished ? 'Tournament complete' : current.name}</h2>
+      <div className="card relative flex flex-wrap items-center justify-between gap-3 overflow-hidden p-5">
+        <div className="pointer-events-none absolute inset-0 bg-[radial-gradient(500px_160px_at_0%_0%,rgba(10,200,185,.10),transparent)]" />
+        <div className="relative">
+          <div className="label text-hex-400">{t.format === 'swiss' ? 'Swiss stage → Knockouts' : 'Group stage → Knockouts'}</div>
+          <h2 className="display text-4xl text-white">{finished ? 'Tournament complete' : current.name}</h2>
           {userOut && <div className="text-sm text-rose-400">You have been eliminated. Simulate the rest to see who lifts the cup.</div>}
         </div>
-        <div className="flex flex-wrap gap-2">
+        <div className="relative flex flex-wrap gap-2">
           {finished ? (
             <button className="btn-primary" onClick={onResults}>
               See results →
@@ -114,7 +115,7 @@ export function TournamentScreen({ t, stageIdx, onPlay, onSimStage, onOpen, onRe
             .reverse()
             .map((st) => (
               <div key={st.name} className="card p-3">
-                <h3 className="mb-1 text-sm font-bold text-slate-300">{st.name}</h3>
+                <h3 className="label mb-1.5 px-2">{st.name}</h3>
                 <div className="grid gap-x-4 md:grid-cols-2">
                   {st.series.map((s) => (
                     <SeriesRow key={s.id} s={s} uid={t.userId} onOpen={() => onOpen(s)} />
@@ -124,8 +125,8 @@ export function TournamentScreen({ t, stageIdx, onPlay, onSimStage, onOpen, onRe
             ))}
           {stageIdx < t.rounds.length && <Bracket t={t} revealed={stageIdx} onOpen={onOpen} />}
         </div>
-        <div className="card h-fit p-3">
-          <h3 className="mb-2 font-bold">{t.format === 'swiss' ? 'Swiss standings' : 'Group standings'}</h3>
+        <div className="card h-fit p-4 lg:sticky lg:top-20">
+          <h3 className="display mb-2 text-xl text-white">{t.format === 'swiss' ? 'Swiss standings' : 'Group standings'}</h3>
           {!lastStandings && <div className="text-sm text-slate-500">No results yet.</div>}
           {lastStandings &&
             [...lastStandings]
@@ -133,7 +134,7 @@ export function TournamentScreen({ t, stageIdx, onPlay, onSimStage, onOpen, onRe
               .map((s) => {
                 const team = byId.get(s.teamId)!;
                 return (
-                  <div key={s.teamId} className={`flex items-center justify-between rounded px-2 py-0.5 text-sm ${team.isUser ? 'bg-amber-500/10 text-amber-300' : ''}`}>
+                  <div key={s.teamId} className={`flex items-center justify-between rounded-lg px-2 py-1 text-sm ${team.isUser ? 'bg-gold-500/10 text-gold-400' : ''}`}>
                     <span className="truncate">
                       {team.name} <span className="text-[10px] text-slate-500">{team.rating.toFixed(0)}</span>
                     </span>

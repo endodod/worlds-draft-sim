@@ -40,6 +40,15 @@ export const PLAYSTYLE = {
   visionZ: 0.8,
   teamfighterKpZ: 0.6,
   splitpushKpZ: -0.6,
+  /** z-scores are multiplied by games/(games + tagShrinkK) before thresholds */
+  tagShrinkK: 8,
+  /** champion-pool tags (engager / peeler) need at least this many games */
+  poolTagMinGames: 15,
+  engagerShare: 0.5,
+  peelerShare: 0.5,
+  objectiveZ: 0.9,
+  clutchMinWorldsGames: 8,
+  clutchKdaRatio: 1.2,
 };
 
 // ---------- Synergy ----------
@@ -60,6 +69,76 @@ export const SYNERGY = {
   roamerAggroJungle: 1.5,
   splitpushTeamfight: 1,
   splitpushMinTeamfighters: 2,
+};
+
+// ---------- Duo synergy (bot lane, jungle links) ----------
+export const DUO = {
+  /** familiarity: same team that year starts at sameTeamBase and reaches 1 after gamesForFull games together */
+  sameTeamBase: 0.35,
+  gamesForFull: 90,
+  perSharedYear: 0.25,
+  otherYearCap: 0.6,
+  famWeight: 0.6,
+  styleWeight: 0.6,
+  /** team-rating modifier per 1.0 of style fit (familiarity is already in "played together") */
+  styleToRating: 2,
+  /** logit per 1.0 of duo value difference in lane / gank / objective events */
+  toLogit: 0.55,
+};
+
+// ---------- Champion pools ----------
+export const POOL = {
+  /** tiers by games that year: signature = top-3 by games with >= signatureGames */
+  signatureGames: 6,
+  comfortGames: 3,
+  /** in-game rating delta = clamp((mastery - pivot) * scale, min, max) */
+  masteryPivot: 0.8,
+  masteryScale: 25,
+  deltaMin: -12,
+  deltaMax: 5,
+  /** synergy: comfort champions (>= comfortGames) per player */
+  shallowBelow: 4,
+  deepAbove: 9,
+  shallowPenalty: -1,
+  deepBonus: 1,
+  /** two players whose signature champions overlap (flex conflicts) */
+  overlapPenalty: -0.5,
+};
+
+// ---------- User draft plans ----------
+export const PLAN = {
+  /** chance each planned pick gets read and banned by the opponent */
+  banRisk: { comfort: 0.42, balanced: 0.2, deep: 0.06 } as Record<string, number>,
+  /** replacement for a banned planned pick: chance it's a low-pool champion (else an off-pool one) */
+  lowPoolReplacement: 0.5,
+};
+
+// ---------- Series fatigue and pressure ----------
+export const FATIGUE = {
+  /** rating penalty for a 0-experience player in game 4 / game 5, scaled by (1 - experience/100) */
+  game4: 5,
+  game5: 8,
+  /** pressure games (elimination or decider): chance a 0-experience player cracks */
+  crackBase: 0.3,
+  crackDecider: 1.3,
+  clutchFactor: 0.35,
+  crackPenalty: 14,
+  /** experienced (>= 70) or clutch players get a small lift in pressure games */
+  veteranLift: 2,
+  clutchLift: 3,
+};
+
+// ---------- Tempo ----------
+export const TEMPO = {
+  /** logit bonus right after an objective or won fight; decays with exp(-dt / decay) */
+  dragon: 0.55,
+  herald: 0.45,
+  grubs: 0.35,
+  baron: 0.8,
+  atakhan: 0.5,
+  fight: 0.6,
+  gank: 0.25,
+  decay: 150,
 };
 
 // ---------- Draft / champion value ----------
@@ -92,6 +171,10 @@ export const SIM = {
   roamChance: 0.45,
   noShotcallerMisplay: 0.22,
   dualShotcallerSplitCall: 0.12,
+  /** teamfight: logit per point of (peel - dive threat) margin difference */
+  peelToLogit: 0.18,
+  /** chance a bot-lane event turns into a 2v2 skirmish (and maybe a jungle collapse) */
+  botSkirmish: 0.4,
   dragonStart: 5,
   dragonRespawn: 5,
   grubsTime: 6,

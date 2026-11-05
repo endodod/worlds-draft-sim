@@ -1,6 +1,7 @@
 import teamsJson from '../data/teams.json';
 import { rateAll, seasonKey } from './strength';
 import { buildTeammateIndex, rateTeam } from './synergy';
+import { teamDuos } from './duo';
 import type { RatedPlayer, Team } from './types';
 import { ROLES } from './types';
 import type { SeriesTeam } from './series';
@@ -37,6 +38,7 @@ export function toSeriesTeam(id: string, name: string, short: string, players: R
     shotcallers: players.filter((p) => p.playstyle.includes('shotcaller')).length,
     year: metaYear(players),
     isUser,
+    duos: teamDuos(players, TEAMMATES),
   };
 }
 

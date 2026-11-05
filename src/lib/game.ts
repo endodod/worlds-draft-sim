@@ -1,5 +1,7 @@
-import { DRAFT, SIM } from '../config/balance';
+import { DRAFT, DUO, FATIGUE, POOL, SIM, TEMPO } from '../config/balance';
 import type { DraftResult, CompScore } from './draft';
+import { championAttrs, championTags } from './champions';
+import { duoValue, teamDuos, type DuoKey, type DuoScore } from './duo';
 import type { RatedPlayer, Role } from './types';
 import { ROLES } from './types';
 import { sigmoid, type Rng } from './rng';
@@ -15,6 +17,26 @@ export interface SimTeam {
   players: RatedPlayer[]; // TOP..SUP
   rating: number; // base + synergy
   shotcallers: number;
+  /** bot lane / jungle link scores (computed from players when absent) */
+  duos?: DuoScore[];
+}
+
+/** Where this game sits in its series: drives fatigue (games 4-5) and pressure (elimination / decider). */
+export interface GameContext {
+  game: number; // 1-based
+  bestOf: number;
+  /** side faces elimination if it loses this game */
+  pressure: [boolean, boolean];
+}
+
+/** Per-player form for one game: what changed their effective rating and why. */
+export interface PlayerCondition {
+  delta: number;
+  champ: number;
+  fatigue: number;
+  pressure: number;
+  cracked: boolean;
+  notes: string[];
 }
 
 export interface Actor {
@@ -31,6 +53,8 @@ export interface GameEvent {
   objective?: 'dragon' | 'baron' | 'grubs' | 'herald' | 'atakhan' | 'elder';
   side?: Side; // who benefited
   score: ScoreSnapshot;
+  /** key moment: shown in the simple event log */
+  major?: boolean;
 }
 
 export interface ScoreSnapshot {
@@ -39,6 +63,8 @@ export interface ScoreSnapshot {
   towers: [number, number]; // destroyed BY side
   dragons: [string[], string[]];
   barons: [number, number];
+  /** live K/D/A per player [side][role] */
+  kda: [number[][], number[][]];
 }
 
 export interface PlayerLine {
@@ -55,12 +81,14 @@ export interface GameResult {
   gold: { t: number; diff: number; a: number; b: number }[];
   final: ScoreSnapshot & { grubs: [number, number]; heralds: [number, number]; elders: [number, number]; inhibs: [number, number] };
   lines: [PlayerLine[], PlayerLine[]];
+  conditions: [PlayerCondition[], PlayerCondition[]];
 }
 
 export interface GameInput {
   teams: [SimTeam, SimTeam];
   draft: DraftResult;
   year: number;
+  context?: GameContext;
 }
 
 const LANES: { key: 'top' | 'mid' | 'bot'; roles: number[] }[] = [
@@ -94,6 +122,13 @@ export class GameSim {
   next = { dragon: 0, baron: 0, grubs: 0, herald: 0, atakhan: 0, elder: Infinity };
   power: [number, number];
   form: [number, number];
+  /** players with per-game effective ratings (champion mastery, fatigue, pressure) */
+  eff: [RatedPlayer[], RatedPlayer[]];
+  conditions: [PlayerCondition[], PlayerCondition[]];
+  duos: [DuoScore[], DuoScore[]];
+  /** last tempo swing: who got it, when, how big */
+  tempo: { side: Side; t: number; mag: number; why: string } | null = null;
+  pendingCracks: Actor[] = [];
 
   constructor(public input: GameInput, public rng: Rng) {
     this.map = SIM.map(input.year);
@@ -104,15 +139,100 @@ export class GameSim {
     this.next.baron = SIM.baronStart * 60;
     const dv = input.draft.value;
     this.form = [SIM.formSd * rng.normal(), SIM.formSd * rng.normal()];
+    this.conditions = [0, 1].map((s) => this.conditionsFor(s as Side)) as [PlayerCondition[], PlayerCondition[]];
+    this.eff = [0, 1].map((s) => input.teams[s].players.map((p, i) => withDelta(p, this.conditions[s][i].delta))) as [RatedPlayer[], RatedPlayer[]];
+    this.duos = [0, 1].map((s) => input.teams[s].duos ?? teamDuos(input.teams[s].players)) as [DuoScore[], DuoScore[]];
+    const avgDelta = (s: Side) => this.conditions[s].reduce((a, c) => a + c.delta, 0) / 5;
     this.power = [
-      input.teams[0].rating + this.form[0] + DRAFT.draftValueToRating * (dv[0] - dv[1]) / 2,
-      input.teams[1].rating + this.form[1] + DRAFT.draftValueToRating * (dv[1] - dv[0]) / 2,
+      input.teams[0].rating + this.form[0] + DRAFT.draftValueToRating * (dv[0] - dv[1]) / 2 + 0.6 * avgDelta(0),
+      input.teams[1].rating + this.form[1] + DRAFT.draftValueToRating * (dv[1] - dv[0]) / 2 + 0.6 * avgDelta(1),
     ];
+  }
+
+  /**
+   * Effective-rating changes for one side:
+   *  - champion: mastery of the picked champion from that year's games (signature +, off-pool -)
+   *  - fatigue: games 4 and 5 of a series cost inexperienced players (scaled by 1 - experience/100)
+   *  - pressure: in elimination games an inexperienced player may crack; veterans and clutch players get a lift
+   */
+  conditionsFor(side: Side): PlayerCondition[] {
+    const ctx = this.input.context;
+    const picks = this.input.draft.picks[side];
+    return this.input.teams[side].players.map((p, i) => {
+      const pk = picks.find((x) => x.playerIdx === i);
+      const notes: string[] = [];
+      const champ = pk ? Math.max(POOL.deltaMin, Math.min(POOL.deltaMax, (pk.mastery - POOL.masteryPivot) * POOL.masteryScale)) : 0;
+      if (pk && pk.tier === 'signature') notes.push(`signature ${pk.champion} (${pk.games} games this year)`);
+      if (pk && pk.tier === 'off') notes.push(`${pk.champion} is not in ${p.handle}'s pool`);
+      const inexp = 1 - (p.rating.experience ?? 50) / 100;
+      let fatigue = 0;
+      if (ctx && ctx.game >= 4) {
+        fatigue = -inexp * (ctx.game >= 5 ? FATIGUE.game5 : FATIGUE.game4);
+        if (fatigue <= -2) notes.push(`tired in game ${ctx.game}`);
+      }
+      let pressure = 0;
+      let cracked = false;
+      if (ctx && ctx.pressure[side]) {
+        const clutch = p.playstyle.includes('clutch');
+        const decider = ctx.pressure[0] && ctx.pressure[1];
+        const crack = FATIGUE.crackBase * inexp ** 1.5 * (decider ? FATIGUE.crackDecider : 1) * (clutch ? FATIGUE.clutchFactor : 1);
+        if (this.rng.chance(crack)) {
+          cracked = true;
+          pressure = -FATIGUE.crackPenalty;
+          notes.push('cracks under pressure');
+          this.pendingCracks.push({ side, idx: i });
+        } else if (clutch) {
+          pressure = FATIGUE.clutchLift;
+          notes.push('clutch on the big stage');
+        } else if ((p.rating.experience ?? 50) >= 70) {
+          pressure = FATIGUE.veteranLift;
+          notes.push('veteran composure');
+        }
+      }
+      const delta = Math.round((champ + fatigue + pressure) * 10) / 10;
+      return { delta, champ: Math.round(champ * 10) / 10, fatigue: Math.round(fatigue * 10) / 10, pressure, cracked, notes };
+    });
+  }
+
+  duo(side: Side, key: DuoKey): number {
+    return duoValue(this.duos[side], key);
+  }
+  duoDiff(key: DuoKey): number {
+    return this.duo(0, key) - this.duo(1, key);
+  }
+
+  /** Tempo bonus (logit, + favours side 0) from the last objective / won fight, decaying over time. */
+  tempoLogit(): number {
+    if (!this.tempo) return 0;
+    const v = this.tempo.mag * Math.exp(-(this.t - this.tempo.t) / TEMPO.decay);
+    return this.tempo.side === 0 ? v : -v;
+  }
+  setTempo(side: Side, mag: number, why: string) {
+    this.tempo = { side, t: this.t, mag, why };
+  }
+  hasTempo(side: Side): boolean {
+    return !!this.tempo && this.tempo.side === side && Math.abs(this.tempoLogit()) > 0.2;
+  }
+
+  /**
+   * Peel margin for a side's carries: support (and team) peel vs the enemy's dive threat.
+   * Positive = the carries can be protected; negative = they get dived.
+   */
+  peelMargin(side: Side): number {
+    const opp = (1 - side) as Side;
+    const sup = this.p(side, 4);
+    const supChamp = championAttrs(this.champ(side, 4));
+    let peel = 0.6 * supChamp.peel + this.comp(side).peel / 5 + (sup.rating.teamfight - 50) / 25;
+    if (sup.playstyle.includes('peeler')) peel += 1;
+    const oppChamps = [0, 1, 2, 3, 4].map((i) => this.champ(opp, i));
+    const divers = oppChamps.filter((c) => championTags(c).some((t) => t === 'Assassin' || t === 'Fighter')).length;
+    const threat = this.comp(opp).engage / 4 + 0.6 * divers;
+    return peel - threat;
   }
 
   // ------------- helpers -------------
   p(side: Side, idx: number): RatedPlayer {
-    return this.input.teams[side].players[idx];
+    return this.eff[side][idx];
   }
   champ(side: Side, idx: number): string {
     return this.input.draft.picks[side].find((pk) => pk.playerIdx === idx)?.champion ?? '?';
@@ -132,10 +252,11 @@ export class GameSim {
     return `${String(m).padStart(2, '0')}:${String(s).padStart(2, '0')}`;
   }
   snapshot(): ScoreSnapshot {
-    return { kills: [...this.kills], gold: [Math.round(this.gold[0]), Math.round(this.gold[1])], towers: [...this.towers], dragons: [[...this.dragons[0]], [...this.dragons[1]]], barons: [...this.barons] };
+    return { kills: [...this.kills], gold: [Math.round(this.gold[0]), Math.round(this.gold[1])], towers: [...this.towers], dragons: [[...this.dragons[0]], [...this.dragons[1]]], barons: [...this.barons], kda: [this.lines[0].map((l) => [l.k, l.d, l.a]), this.lines[1].map((l) => [l.k, l.d, l.a])] };
   }
   log(e: Omit<GameEvent, 't' | 'score' | 'text'> & { text: string }) {
-    this.events.push({ ...e, t: Math.round(this.t), text: `${this.stamp()} — ${e.text}`, score: this.snapshot() });
+    const major = e.major ?? (e.kind === 'end' || (e.kind === 'objective' && (e.objective === 'baron' || e.objective === 'elder' || e.objective === 'atakhan')) || /FIRST BLOOD|ACE|SOUL|inhibitor/.test(e.text));
+    this.events.push({ ...e, major, t: Math.round(this.t), text: `${this.stamp()} — ${e.text}`, score: this.snapshot() });
   }
 
   /** Base logit for side 0 vs side 1 from team power, gold, buffs and noise. */
@@ -146,6 +267,7 @@ export class GameSim {
     if (this.buff.baron[1] > this.t) x -= 0.5;
     if (this.buff.elder[0] > this.t) x += 0.9;
     if (this.buff.elder[1] > this.t) x -= 0.9;
+    x += this.tempoLogit();
     if (noise) x += SIM.noiseLogit * this.rng.normal();
     return x;
   }
@@ -186,11 +308,64 @@ export class GameSim {
     x += SIM.playerDiffToLogit * SIM.jungleLanePresence * this.statDiff([1], (p) => 0.5 * p.rating.aggression + 0.5 * p.rating.strength);
     x += SIM.compToLogit * (this.comp(0).early - this.comp(1).early) / 3;
     x += 0.4 * SIM.ratingToLogit * (this.power[0] - this.power[1]);
+    if (lane.key === 'bot') x += DUO.toLogit * this.duoDiff('BOT-SUP');
+    if (lane.key === 'top') x += 0.5 * DUO.toLogit * this.duoDiff('JNG-TOP');
+    if (lane.key === 'mid') x += 0.5 * DUO.toLogit * this.duoDiff('JNG-MID');
     return sigmoid(x);
+  }
+
+  /** Bot lane 2v2: duo synergy decides the trade; a nearby jungler can turn it into a 3v2 (or a 3v3). */
+  botSkirmish() {
+    const lane = LANES[2];
+    let x = SIM.playerDiffToLogit * this.statDiff([3, 4], (p) => 0.6 * p.rating.laning + 0.4 * p.rating.strength);
+    x += DUO.toLogit * 1.4 * this.duoDiff('BOT-SUP');
+    x += SIM.compToLogit * (this.comp(0).early - this.comp(1).early) / 3 + 0.3 * SIM.ratingToLogit * (this.power[0] - this.power[1]);
+    const w: Side = this.rng.chance(sigmoid(x + 0.2 * this.rng.normal())) ? 0 : 1;
+    const l = (1 - w) as Side;
+    const duoW = this.duo(w, 'BOT-SUP');
+    // junglers: the one with the better jungle-support link and more aggression shows up first
+    const jngCome = (s: Side) => 0.2 + 0.25 * this.duo(s, 'JNG-SUP') + (this.p(s, 1).rating.aggression - 50) / 200;
+    const wJ = this.rng.chance(Math.max(0.05, jngCome(w)));
+    const lJ = this.rng.chance(Math.max(0.05, jngCome(l)) * 0.7);
+    const duoName = `${this.name(w, 3)} and ${this.name(w, 4)}`;
+    const actors: Actor[] = [{ side: w, idx: 3 }, { side: w, idx: 4 }, { side: l, idx: 3 }, { side: l, idx: 4 }, ...(wJ ? [{ side: w, idx: 1 }] : []), ...(lJ ? [{ side: l, idx: 1 }] : [])];
+    const synergyNote = duoW >= 0.5 ? ' (duo synergy)' : '';
+    if (wJ && !lJ) {
+      const v1 = this.rng.pick([3, 4]);
+      const fb = this.kill(w, this.rng.pick([3, 1]), v1, [1, 3, 4]);
+      let text = `3v2 bot: ${this.p(w, 1).handle} joins ${duoName}${synergyNote}, ${this.name(l, v1)} dies${fb}`;
+      if (this.rng.chance(0.55)) {
+        this.kill(w, 3, v1 === 3 ? 4 : 3, [1, 3, 4]);
+        text += ' — double kill';
+      }
+      this.laneLead.bot += (w === 0 ? 1 : -1) * 700;
+      this.setTempo(w, TEMPO.gank, 'bot dive');
+      this.log({ kind: 'gank', location: 'bot', actors, side: w, text, major: text.includes('double kill') });
+    } else if (wJ && lJ) {
+      const n = this.rng.int(1, 3);
+      const victims = this.pickN([1, 3, 4], n);
+      for (const v of victims) this.kill(w, this.rng.pick([1, 3, 4]), v, [1, 3, 4]);
+      const back = this.rng.chance(0.5) ? 1 : 0;
+      if (back) this.kill(l, this.rng.pick([1, 3]), this.rng.pick([3, 4]), [1, 3, 4]);
+      this.laneLead.bot += (w === 0 ? 1 : -1) * 500;
+      this.setTempo(w, TEMPO.gank, 'bot skirmish');
+      this.log({ kind: 'fight', location: 'bot', actors, side: w, major: n >= 3, text: `Both junglers collapse bot — 3v3: ${duoName} win it ${n} for ${back}${synergyNote}` });
+    } else if (this.rng.chance(SIM.soloKillBase * 1.6 * (0.8 + Math.max(0, duoW)))) {
+      const v = this.rng.pick([3, 4]);
+      const fb = this.kill(w, this.rng.chance(0.65) ? 3 : 4, v, [3, 4]);
+      this.laneLead.bot += (w === 0 ? 1 : -1) * 600;
+      this.log({ kind: 'lane', location: 'bot', actors: actors.slice(0, 4), side: w, text: `2v2 bot: ${duoName} all-in${synergyNote}, ${this.name(l, v)} goes down${fb}` });
+    } else {
+      this.addGold(w, SIM.laneLeadGold, 3);
+      this.laneLead.bot += (w === 0 ? 1 : -1) * SIM.laneLeadGold;
+      this.log({ kind: 'lane', location: 'bot', actors: actors.slice(0, 4), side: w, text: `2v2 trade bot: ${duoName} win it and shove for plates (+${SIM.laneLeadGold}g)` });
+    }
+    this.maybeTower(lane.key);
   }
 
   laneEvent() {
     const lane = this.rng.pick(LANES);
+    if (lane.key === 'bot' && this.rng.chance(SIM.botSkirmish)) return this.botSkirmish();
     const p0 = this.laneProb(lane);
     const w: Side = this.rng.chance(p0) ? 0 : 1;
     const l = (1 - w) as Side;
@@ -235,6 +410,10 @@ export class GameSim {
     const vision = (this.p(opp, 4).rating.vision + this.p(opp, 1).rating.vision) / 2;
     let x = SIM.playerDiffToLogit * (0.5 * j.aggression + 0.3 * j.impact + 0.4 * allies - 0.5 * targets - 0.35 * vision + 5);
     x += 0.5 * SIM.ratingToLogit * (this.power[side] - this.power[opp]);
+    // links: jungle-top for top, jungle-mid for mid, jungle-support + bot duo for 3v2 dives bot
+    const link = lane.key === 'top' ? this.duo(side, 'JNG-TOP') : lane.key === 'mid' ? this.duo(side, 'JNG-MID') : (this.duo(side, 'JNG-SUP') + this.duo(side, 'BOT-SUP')) / 2;
+    const defend = lane.key === 'bot' ? this.duo(opp, 'BOT-SUP') * 0.5 : 0;
+    x += DUO.toLogit * (link - defend);
     return sigmoid(x);
   }
 
@@ -259,7 +438,8 @@ export class GameSim {
         text += ' — double kill';
       }
       this.laneLead[lane.key] += (side === 0 ? 1 : -1) * 400;
-      this.log({ kind: 'gank', location: lane.key, actors: [{ side, idx: 1 }, ...lane.roles.map((i) => ({ side, idx: i }))], side, text });
+      this.setTempo(side, TEMPO.gank, `${lane.key} gank`);
+      this.log({ kind: 'gank', location: lane.key, actors: [{ side, idx: 1 }, ...lane.roles.map((i) => ({ side, idx: i }))], side, text: lane.key === 'bot' ? text.replace(' ganks bot', ' 3v2 ganks bot').replace(' dives bot', ' 3v2 dives bot') : text });
       this.maybeTower(lane.key);
     } else if (roll < p + (1 - p) * SIM.failedDiveBase * (dive ? 1.6 : 0.7)) {
       // failed gank/dive: defenders get kills (enemy jungler counter-ganks sometimes)
@@ -331,10 +511,12 @@ export class GameSim {
     const str = (p: RatedPlayer) => p.rating.strength;
     if (kind === 'grubs' || kind === 'herald') {
       x += d([0], (p) => 0.6 * p.rating.laning + 0.4 * p.rating.strength) * 1.4;
-      x += d([1], str) + SIM.goldToLogit * 0 + (this.laneLead.top > 0 ? 0.25 : this.laneLead.top < 0 ? -0.25 : 0);
+      x += d([1], str) + (this.laneLead.top > 0 ? 0.25 : this.laneLead.top < 0 ? -0.25 : 0);
+      x += DUO.toLogit * this.duoDiff('JNG-TOP');
     } else if (kind === 'dragon') {
       x += d([3, 4], str) * 1.2 + d([1], str) * 0.7 + d([1, 4], (p) => p.rating.vision) * 0.5;
       x += this.laneLead.bot > 0 ? 0.25 : this.laneLead.bot < 0 ? -0.25 : 0;
+      x += DUO.toLogit * (0.8 * this.duoDiff('BOT-SUP') + 0.4 * this.duoDiff('JNG-SUP'));
     } else {
       // baron / elder / atakhan: macro + teamfighting + shotcalling
       x += d([0, 1, 2, 3, 4], (p) => p.rating.teamfight) * 1.2 + d([1, 4], (p) => p.rating.vision) * 0.5;
@@ -342,6 +524,9 @@ export class GameSim {
       if (kind === 'elder') x += SIM.compToLogit * (this.comp(0).late - this.comp(1).late) / 2;
     }
     x += SIM.compToLogit * this.engageDiff() * 0.3 + SIM.compToLogit * this.phaseComp();
+    // junglers whose teams control objectives all year
+    x += 0.25 * ((this.p(0, 1).playstyle.includes('objective_control') ? 1 : 0) - (this.p(1, 1).playstyle.includes('objective_control') ? 1 : 0));
+    x += this.tempoLogit();
     return sigmoid(x);
   }
   callerBonus(side: Side): number {
@@ -398,7 +583,10 @@ export class GameSim {
         fightText = `${this.name(w, this.rng.pick([1, 4, engager]))} engages: ${victims.length === 5 ? 'ACE' : victims.map((v) => this.p(l, v).handle).join(', ') + ' down'}${trade ? ` (${this.team(l)} trade 1)` : ''}, `;
       }
     }
+    const tempoNote = this.hasTempo(w) && this.tempo!.why !== kind ? ` — with tempo from the ${this.tempo!.why}` : '';
+    this.setTempo(w, TEMPO[kind === 'elder' ? 'baron' : kind], kind === 'dragon' ? 'drake reset' : kind);
     const team = this.team(w);
+    const suffix = tempoNote;
     if (kind === 'dragon') {
       const pool = this.input.year >= 2020 ? DRAKES_MODERN : this.input.year >= 2016 ? DRAKES_2016 : ['Dragon'];
       const type = this.dragonType ?? this.rng.pick(pool);
@@ -407,36 +595,36 @@ export class GameSim {
       this.addGold(w, SIM.objectiveGold.dragon);
       const soul = this.map.soul && this.dragons[w].length === 4;
       const name = type === 'Dragon' ? 'the Dragon' : `${this.soulType ?? type} Drake`;
-      this.log({ kind: 'objective', objective: 'dragon', location: 'dragon', actors, side: w, text: `${fightText}${team} take ${name}${soul ? ` — ${this.soulType ?? type} SOUL` : ''}` });
+      this.log({ kind: 'objective', objective: 'dragon', location: 'dragon', actors, side: w, text: `${fightText}${team} take ${name}${soul ? ` — ${this.soulType ?? type} SOUL` : ''}${suffix}` });
       this.next.dragon = this.map.soul && this.dragons[w].length >= 4 ? Infinity : this.t + SIM.dragonRespawn * 60;
       if (soul || (!this.map.soul && this.t > 33 * 60)) this.next.elder = Math.min(this.next.elder, this.t + SIM.elderRespawn * 60);
     } else if (kind === 'grubs') {
       this.grubs[w] += 3;
       this.addGold(w, SIM.objectiveGold.grubs);
-      this.log({ kind: 'objective', objective: 'grubs', location: 'baron', actors, side: w, text: `${fightText}${team} take the Void Grubs (${this.p(w, 0).handle} and ${this.p(w, 1).handle} with top-side priority)` });
+      this.log({ kind: 'objective', objective: 'grubs', location: 'baron', actors, side: w, text: `${fightText}${team} take the Void Grubs (${this.p(w, 0).handle} and ${this.p(w, 1).handle} with top-side priority)${suffix}` });
       this.next.grubs = Infinity;
     } else if (kind === 'herald') {
       this.heralds[w]++;
       this.addGold(w, SIM.objectiveGold.herald);
-      this.log({ kind: 'objective', objective: 'herald', location: 'baron', actors, side: w, text: `${fightText}${team} take Rift Herald and crash it into ${this.rng.pick(['mid', 'top', 'bot'])}` });
+      this.log({ kind: 'objective', objective: 'herald', location: 'baron', actors, side: w, text: `${fightText}${team} take Rift Herald and crash it into ${this.rng.pick(['mid', 'top', 'bot'])}${suffix}` });
       if (this.towers[w] < 9) this.towers[w]++;
       this.next.herald = Infinity;
     } else if (kind === 'atakhan') {
       this.addGold(w, SIM.objectiveGold.atakhan);
-      this.log({ kind: 'objective', objective: 'atakhan', location: 'baron', actors, side: w, text: `${fightText}${team} slay Atakhan` });
+      this.log({ kind: 'objective', objective: 'atakhan', location: 'baron', actors, side: w, text: `${fightText}${team} slay Atakhan${suffix}` });
       this.next.atakhan = Infinity;
     } else if (kind === 'baron') {
       this.barons[w]++;
       this.buff.baron[w] = this.t + 180;
       this.addGold(w, SIM.objectiveGold.baron);
-      this.log({ kind: 'objective', objective: 'baron', location: 'baron', actors, side: w, text: `${fightText}${team} take Baron Nashor` });
+      this.log({ kind: 'objective', objective: 'baron', location: 'baron', actors, side: w, text: `${fightText}${team} take Baron Nashor${suffix}` });
       this.next.baron = this.t + SIM.baronRespawn * 60;
       this.push(w, 'baron');
     } else {
       this.elders[w]++;
       this.buff.elder[w] = this.t + 150;
       this.addGold(w, SIM.objectiveGold.elder);
-      this.log({ kind: 'objective', objective: 'elder', location: 'dragon', actors, side: w, text: `${fightText}${team} take the ELDER DRAGON` });
+      this.log({ kind: 'objective', objective: 'elder', location: 'dragon', actors, side: w, text: `${fightText}${team} take the ELDER DRAGON${suffix}` });
       this.next.elder = this.t + SIM.elderRespawn * 60;
       this.push(w, 'elder');
     }
@@ -449,6 +637,8 @@ export class GameSim {
     let x = this.baseLogit();
     x += SIM.playerDiffToLogit * this.statDiff([0, 1, 2, 3, 4], (p) => p.rating.teamfight) * 1.2;
     x += SIM.compToLogit * this.engageDiff() + SIM.compToLogit * this.phaseComp();
+    // can the support keep the carries alive against the enemy's divers?
+    x += SIM.peelToLogit * (Math.max(-3, Math.min(3, this.peelMargin(0))) - Math.max(-3, Math.min(3, this.peelMargin(1))));
     return sigmoid(x);
   }
 
@@ -460,7 +650,10 @@ export class GameSim {
     const w: Side = this.rng.chance(p0) ? 0 : 1;
     const l = (1 - w) as Side;
     const n = this.rng.int(1, 5);
-    const victims = this.pickN([0, 1, 2, 3, 4], n);
+    // a carry that can't be peeled dies first
+    const lPeel = this.peelMargin(l);
+    const wPeel = this.peelMargin(w);
+    const victims = this.rng.shuffle([0, 1, 2, 3, 4]).sort((a, b) => (b === 3 && lPeel < 0 ? 1 : 0) - (a === 3 && lPeel < 0 ? 1 : 0)).slice(0, n);
     const killers = [0, 1, 2, 3, 4];
     for (const v of victims) this.kill(w, this.rng.weighted(killers, (i) => (i === 4 ? 0.3 : 1) + this.p(w, i).rating.impact / 50), v, killers);
     const back = this.rng.int(0, Math.max(0, 2 - Math.floor(n / 2)));
@@ -468,12 +661,17 @@ export class GameSim {
     const engager = this.comp(w).engage >= this.comp(l).engage ? this.rng.pick([1, 4, 0]) : this.rng.pick([2, 3]);
     const carry = this.rng.weighted(killers, (i) => this.lines[w][i].k + 1);
     const ace = n === 5;
+    let peelText = '';
+    if (wPeel > 0.5 && carry === 3 && this.rng.chance(0.6)) peelText = ` ${this.name(w, 4)} peels for ${this.p(w, 3).handle},`;
+    else if (lPeel < 0 && victims.includes(3) && this.rng.chance(0.7)) peelText = ` ${this.p(l, 3).handle} gets dived and ${this.p(l, 4).handle} can't peel,`;
+    if (n >= 3) this.setTempo(w, TEMPO.fight, 'won fight');
     this.log({
       kind: 'fight',
       location,
       actors: [...killers.map((i) => ({ side: w, idx: i })), ...killers.map((i) => ({ side: l, idx: i }))],
       side: w,
-      text: `Teamfight: ${this.name(w, engager)} ${this.engageVerb(w)}, ${this.name(w, carry)} cleans up — ${ace ? 'ACE' : `${n} for ${back}`} for ${this.team(w)}`,
+      major: n >= 4,
+      text: `Teamfight: ${this.name(w, engager)} ${this.engageVerb(w)},${peelText} ${this.name(w, carry)} cleans up — ${ace ? 'ACE' : `${n} for ${back}`} for ${this.team(w)}`,
     });
     if (n >= 3 || ace) this.push(w, ace ? 'ace' : 'fight');
   }
@@ -483,6 +681,19 @@ export class GameSim {
     if (c.poke >= 12) return this.rng.pick(['pokes them down first', 'sieges with poke']);
     if (c.peel >= 14) return this.rng.pick(['peels the front-to-back', 'protects the carries']);
     return this.rng.pick(['picks the angle', 'turns the fight']);
+  }
+
+  /** A player who cracked under pressure throws once in the mid game. */
+  crackEvent(): boolean {
+    const a = this.pendingCracks.shift();
+    if (!a) return false;
+    const opp = (1 - a.side) as Side;
+    const killer = this.rng.pick([0, 1, 2, 3]);
+    this.kill(opp, killer, a.idx, [killer, 1]);
+    this.addGold(opp, 300);
+    const what = this.rng.pick(['walks into fog alone', 'misses a crucial skill shot and gets collapsed on', 'flashes into the enemy team', 'face-checks a bush without vision']);
+    this.log({ kind: 'misplay', location: this.rng.pick(['jungle0', 'jungle1', 'midRiver']), actors: [a, { side: opp, idx: killer }], side: opp, major: true, text: `The pressure gets to ${this.name(a.side, a.idx)}: ${what}` });
+    return true;
   }
 
   pick() {
@@ -537,7 +748,14 @@ export class GameSim {
 
   // ------------- main loop -------------
   run(): GameResult {
-    this.log({ kind: 'info', location: 'mid', actors: [], text: `Game start — ${this.input.teams[0].short} (blue) vs ${this.input.teams[1].short} (red)` });
+    const ctx = this.input.context;
+    this.log({ kind: 'info', location: 'mid', actors: [], major: true, text: `Game ${ctx?.game ?? 1} start — ${this.input.teams[0].short} (blue) vs ${this.input.teams[1].short} (red)${ctx && ctx.pressure[0] && ctx.pressure[1] ? ' — winner takes the series' : ctx && (ctx.pressure[0] || ctx.pressure[1]) ? ` — ${this.team(ctx.pressure[0] ? 0 : 1)} on the brink` : ''}` });
+    for (const s of [0, 1] as Side[]) {
+      const tired = this.conditions[s].map((c, i) => ({ c, i })).filter((x) => x.c.fatigue <= -3);
+      if (tired.length) this.log({ kind: 'info', location: s === 0 ? 'base0' : 'base1', actors: tired.map((x) => ({ side: s, idx: x.i })), side: (1 - s) as Side, text: `Game ${ctx!.game} fatigue: ${tired.map((x) => this.p(s, x.i).handle).join(', ')} look${tired.length === 1 ? 's' : ''} drained (little big-stage experience)` });
+      const nervy = this.conditions[s].map((c, i) => ({ c, i })).filter((x) => x.c.cracked);
+      if (nervy.length) this.log({ kind: 'info', location: s === 0 ? 'base0' : 'base1', actors: nervy.map((x) => ({ side: s, idx: x.i })), side: (1 - s) as Side, major: true, text: `Nerves: ${nervy.map((x) => this.p(s, x.i).handle).join(', ')} ${nervy.length === 1 ? 'is' : 'are'} visibly shaken with elimination on the line` });
+    }
     this.t = 90;
     if (this.rng.chance(0.12)) {
       const side: Side = this.rng.chance(sigmoid(this.baseLogit())) ? 0 : 1;
@@ -575,7 +793,8 @@ export class GameSim {
         else if (!this.roam()) this.laneEvent();
       } else {
         const r = this.rng.next();
-        if (r < 0.45) this.teamfight();
+        if (this.pendingCracks.length && this.rng.chance(0.35)) this.crackEvent();
+        else if (r < 0.45) this.teamfight();
         else if (r < 0.7) this.pick();
         else if (r < 0.85 && this.splitPush()) {
           /* split */
@@ -596,8 +815,16 @@ export class GameSim {
       gold: this.goldTimeline,
       final: { ...this.snapshot(), grubs: this.grubs, heralds: this.heralds, elders: this.elders, inhibs: this.inhibs },
       lines: this.lines,
+      conditions: this.conditions,
     };
   }
+}
+
+/** A copy of a player with laning/impact/teamfight/strength shifted by `delta` rating points. */
+export function withDelta(p: RatedPlayer, delta: number): RatedPlayer {
+  if (!delta) return p;
+  const c = (v: number) => Math.max(0, Math.min(100, v + delta));
+  return { ...p, rating: { ...p.rating, strength: c(p.rating.strength), laning: c(p.rating.laning), impact: c(p.rating.impact), teamfight: c(p.rating.teamfight), aggression: c(p.rating.aggression) } };
 }
 
 export function simulateGame(input: GameInput, rng: Rng): GameResult {
