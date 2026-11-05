@@ -116,7 +116,7 @@ strength = clamp(50 + 22 · raw · games/(games + 5), 0, 100)
 
 All inputs are the full-year, league-adjusted stats, so `games` is usually 40–160 and the `games/(games+5)` shrink only bites for Worlds-only seasons. The card shows laning, impact and results on a 0–100 scale. Derived sim attributes (aggression, vision, teamfight) come from the same z-scores.
 
-**Experience (0–100)**, `experienceIndex` in `src/lib/strength.ts`: `12 · earlier Worlds appearances + career games / 10 + international games this year / 3`. A rookie at a first Worlds sits around 10–20, multi-year veterans at 60+. It drives fatigue and pressure (below) and shows as five pips on the player card.
+**Experience (0–100)**, `experienceIndex` in `src/lib/strength.ts`: `12 · earlier Worlds appearances + career games / 10 + international games this year / 3`. A rookie at a first Worlds sits around 10–20, multi-year veterans at 60+. It drives fatigue and pressure (below) and shows as five dots labelled "Worlds exp" on the player card (hover for the value and level: Rookie, Experienced, Veteran, Legend).
 
 ### Playstyle tags, `src/lib/playstyle.ts`
 

@@ -12,13 +12,23 @@ export function seasonLine(p: RatedPlayer): string {
   return p.season.events.map((e) => `${EVENT_SHORT[e.event] ?? e.event} ${e.games}`).join(' · ');
 }
 
-function ExperiencePips({ value }: { value: number }) {
+const expLevel = (v: number) => (v >= 90 ? 'Legend' : v >= 60 ? 'Veteran' : v >= 30 ? 'Experienced' : 'Rookie');
+
+/** Five dots for big-stage experience, with a small label under (or beside) them. */
+function ExperiencePips({ value, inline = false }: { value: number; inline?: boolean }) {
   const n = Math.round(value / 20);
   return (
-    <span className="inline-flex items-center gap-0.5" title={`Big-stage experience ${value}/100: prior Worlds, career games, international games this year. Low experience = fatigue in games 4-5 and a chance to crack under elimination pressure.`}>
-      {[0, 1, 2, 3, 4].map((i) => (
-        <span key={i} className={`h-1.5 w-1.5 rounded-full ${i < n ? 'bg-hex-400' : 'bg-white/10'}`} />
-      ))}
+    <span
+      className={`inline-flex items-center ${inline ? 'gap-1.5' : 'flex-col gap-0.5'}`}
+      title={`Worlds experience ${value}/100 (${expLevel(value)}): earlier Worlds, career games and international games this year. Low experience = fatigue in games 4-5 and a chance to crack under elimination pressure.`}
+    >
+      {inline && <span className="text-[9px] font-semibold uppercase tracking-wider text-slate-500">Worlds exp</span>}
+      <span className="inline-flex items-center gap-0.5">
+        {[0, 1, 2, 3, 4].map((i) => (
+          <span key={i} className={`h-1.5 w-1.5 rounded-full ${i < n ? 'bg-hex-400' : 'bg-white/10'}`} />
+        ))}
+      </span>
+      {!inline && <span className="whitespace-nowrap text-[8px] font-semibold uppercase leading-none tracking-wider text-slate-500">Worlds exp</span>}
     </span>
   );
 }
@@ -64,7 +74,7 @@ export function PlayerCard({ p, onPick, disabled, compact, variant = 'full' }: {
         </div>
         <div className="mt-auto flex items-center justify-between gap-1 border-t border-white/[0.05] pt-1 text-[10px] text-slate-500">
           <span className="truncate">{p.season?.games ?? p.stats.gamesPlayed} games</span>
-          <ExperiencePips value={r.experience ?? 50} />
+          <ExperiencePips value={r.experience ?? 50} inline />
         </div>
       </div>
     );
