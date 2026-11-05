@@ -39,7 +39,7 @@ function OfferHeader({ t }: { t: Team }) {
 const OUT_MS = 325;
 const POP_MS = 450;
 /** deal-in delay per card: banner shows first, then columns left to right, roles top to bottom */
-const dealDelay = (col: number, row: number) => `${130 + col * 110 + row * 70}ms`;
+const dealDelay = (col: number, row: number) => `${POP_MS - 120 + col * 110 + row * 70}ms`;
 
 export function DraftScreen({ cfg, onDone }: { cfg: RunConfig; onDone: (picks: DraftPick[], shown: string[], name: string) => void }) {
   const [picks, setPicks] = useState<DraftPick[]>([]);

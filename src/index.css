@@ -51,7 +51,7 @@ body {
 .picked-card > * { box-shadow: 0 0 0 2px #e2c97e, 0 0 40px -6px rgba(226,201,126,.8); border-color: #e2c97e; }
 /* reload modal */
 @keyframes modal-fade-in { from { opacity: 0 } to { opacity: 1 } }
-@keyframes modal-fade-out { 0%, 50% { opacity: 1 } 100% { opacity: 0 } }
+@keyframes modal-fade-out { 0%, 40% { opacity: 1 } 100% { opacity: 0 } }
 @keyframes modal-pop { 0% { opacity: 0; transform: translateY(6px) scale(.94) } 100% { opacity: 1; transform: none } }
 @keyframes modal-progress { from { width: 8% } to { width: 100% } }
 .modal-fade-in { animation: modal-fade-in .18s ease-out both; }
@@ -59,3 +59,5 @@ body {
 .modal-pop { animation: modal-pop .14s cubic-bezier(.2,.9,.3,1.15) both; }
 .modal-progress { animation: modal-progress .32s cubic-bezier(.4,0,.2,1) both; }
 @media (prefers-reduced-motion: reduce) { .deal-card, .board-out .deal-card, .modal-fade-in, .modal-fade-out, .modal-pop, .modal-progress { animation: none !important; } }
+@keyframes toast-in { from { opacity: 0; transform: translateY(8px) } }
+.toast-in { animation: toast-in .25s ease-out both; }

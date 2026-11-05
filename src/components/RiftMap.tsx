@@ -28,7 +28,10 @@ export function mapUrl(): string {
   return `https://ddragon.leagueoflegends.com/cdn/${ddragonVersion()}/img/map/map11.png`;
 }
 
-export function RiftMap({ event, champs, names, dead, teamColors = TEAM_COLOR }: { event?: GameEvent; champs: [string[], string[]]; names: [string[], string[]]; dead?: Set<string>; teamColors?: readonly [string, string] }) {
+/** Maximum event pop-ups stacked on the map at once. */
+export const MAX_TOASTS = 3;
+
+export function RiftMap({ event, champs, names, dead, toasts, teamColors = TEAM_COLOR }: { event?: GameEvent; champs: [string[], string[]]; names: [string[], string[]]; dead?: Set<string>; toasts?: { e: GameEvent; key: number }[]; teamColors?: readonly [string, string] }) {
   const active = new Map<string, [number, number]>();
   if (event && event.kind !== 'info') {
     const [ex, ey] = LOC[event.location];
@@ -92,9 +95,22 @@ export function RiftMap({ event, champs, names, dead, teamColors = TEAM_COLOR }:
           }),
         )}
       </svg>
-      {event && event.kind !== 'info' && (
-        <div className="pointer-events-none absolute inset-x-2 bottom-2 hidden rounded-xl sm:block border border-white/10 bg-ink-950/85 px-3 py-1.5 text-[12px] leading-snug text-slate-200 backdrop-blur" style={{ borderLeft: `3px solid ${evColor}` }}>
-          {event.text}
+      {/* event pop-ups: at most MAX_TOASTS, a new one pushes out the oldest */}
+      {toasts && toasts.length > 0 && (
+        <div className="pointer-events-none absolute inset-x-2 bottom-2 hidden flex-col gap-1 sm:flex" aria-live="polite">
+          {toasts.slice(-MAX_TOASTS).map(({ e, key }, i, list) => {
+            const newest = i === list.length - 1;
+            const color = e.side === undefined ? '#e2e8f0' : teamColors[e.side];
+            return (
+              <div
+                key={key}
+                className={`toast-in rounded-xl border border-white/10 bg-ink-950/85 px-3 py-1.5 text-[12px] leading-snug backdrop-blur transition-opacity duration-300 ${newest ? 'text-slate-100' : 'text-slate-400'}`}
+                style={{ borderLeft: `3px solid ${color}`, opacity: newest ? 1 : 0.55 + 0.2 * (i - (list.length - MAX_TOASTS)) }}
+              >
+                {e.text}
+              </div>
+            );
+          })}
         </div>
       )}
     </div>

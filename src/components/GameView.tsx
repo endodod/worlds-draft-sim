@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
 import type { SeriesGame, SeriesTeam } from '../lib/series';
 import { deadAt, type GameEvent } from '../lib/game';
-import { GoldGraph, RiftMap, TEAM_COLOR } from './RiftMap';
+import { GoldGraph, MAX_TOASTS, RiftMap, TEAM_COLOR } from './RiftMap';
 import { ChampIcon, RoleIcon, TIER_STYLE } from './atoms';
 
 type Speed = 1 | 4 | 12;
@@ -37,6 +37,16 @@ export function GameView({ game, teams, onFinished, onSkipSeries }: { game: Seri
 
   const current = ev[idx];
   const dead = useMemo(() => deadAt(ev, idx), [ev, idx]);
+  // the last MAX_TOASTS events (not 'info') up to now, oldest first; in Key events mode only major ones
+  const toasts = useMemo(() => {
+    const out: { e: GameEvent; key: number }[] = [];
+    for (let i = idx; i >= 0 && out.length < MAX_TOASTS; i--) {
+      const e = ev[i];
+      if (e.kind === 'info' || (simple && !e.major && i !== idx)) continue;
+      out.unshift({ e, key: i });
+    }
+    return out;
+  }, [ev, idx, simple]);
   const champs = useMemo(() => [0, 1].map((s) => [0, 1, 2, 3, 4].map((i) => game.draft.picks[s].find((p) => p.playerIdx === i)?.champion ?? '')) as [string[], string[]], [game]);
   const names = [blue.players.map((p) => p.handle), red.players.map((p) => p.handle)] as [string[], string[]];
   const sc = current.score;
@@ -70,7 +80,7 @@ export function GameView({ game, teams, onFinished, onSkipSeries }: { game: Seri
 
       <div className="grid gap-3 lg:grid-cols-[minmax(0,1.15fr)_minmax(0,1fr)]">
         <div className="space-y-3">
-          <RiftMap event={current} champs={champs} names={names} dead={dead} />
+          <RiftMap event={current} champs={champs} names={names} dead={dead} toasts={toasts} />
           <GoldGraph data={game.result.gold} upTo={current.t} labels={[blue.short, red.short]} />
         </div>
         <div className="flex min-h-0 flex-col gap-3">
