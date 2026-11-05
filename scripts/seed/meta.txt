@@ -1,0 +1,78 @@
+# Fallback per-year role meta (most-picked champions by role at that Worlds, from memory).
+# Only used by build-seed.ts / as a fallback when the scraper has no pick data for a year.
+# Format: YEAR|ROLE|Champ,Champ,...
+2011|TOP|Malphite,Shen,Irelia,Rumble,Gangplank,Jax,Singed
+2011|JNG|Lee Sin,Amumu,Udyr,Nunu & Willump,Warwick,Rammus
+2011|MID|Ryze,Annie,Morgana,Brand,Anivia,Karthus
+2011|BOT|Ashe,Caitlyn,Corki,Vayne,Ezreal,Twitch
+2011|SUP|Janna,Alistar,Soraka,Taric,Sona
+2012|TOP|Jayce,Irelia,Shen,Rumble,Jax,Malphite,Renekton
+2012|JNG|Lee Sin,Nocturne,Jarvan IV,Hecarim,Skarner,Shyvana
+2012|MID|Orianna,Ahri,Diana,Kassadin,Karthus,Anivia
+2012|BOT|Ezreal,Corki,Graves,Vayne,Caitlyn
+2012|SUP|Sona,Janna,Alistar,Taric,Lulu,Blitzcrank
+2013|TOP|Shyvana,Jax,Renekton,Kennen,Rumble,Jayce
+2013|JNG|Lee Sin,Zac,Elise,Jarvan IV,Nasus,Vi
+2013|MID|Zed,Orianna,Gragas,Ryze,Kassadin,Twisted Fate
+2013|BOT|Vayne,Caitlyn,Corki,Ezreal,Varus
+2013|SUP|Thresh,Zyra,Sona,Annie,Lulu
+2014|TOP|Maokai,Dr. Mundo,Ryze,Alistar,Rumble,Lulu,Irelia
+2014|JNG|Lee Sin,Kha'Zix,Jarvan IV,Elise,Nunu & Willump,Ekko
+2014|MID|Ziggs,Kassadin,Lulu,Orianna,Yasuo,Syndra,Talon
+2014|BOT|Twitch,Corki,Lucian,Vayne,Kog'Maw,Tristana
+2014|SUP|Janna,Thresh,Braum,Annie,Leona
+2015|TOP|Gnar,Rumble,Maokai,Ryze,Lulu,Fiora
+2015|JNG|Gragas,Rek'Sai,Elise,Nidalee,Lee Sin,Kindred
+2015|MID|Viktor,Azir,Lulu,Ahri,Ryze,Orianna,Kassadin
+2015|BOT|Kalista,Jinx,Sivir,Tristana,Corki
+2015|SUP|Alistar,Thresh,Bard,Braum,Annie
+2016|TOP|Poppy,Ekko,Gnar,Rumble,Kennen,Swain
+2016|JNG|Elise,Nidalee,Rek'Sai,Olaf,Kindred,Gragas
+2016|MID|Syndra,Viktor,Ryze,Cassiopeia,Orianna,Aurelion Sol
+2016|BOT|Jhin,Ezreal,Ashe,Sivir,Caitlyn
+2016|SUP|Karma,Zyra,Braum,Bard,Tahm Kench,Alistar
+2017|TOP|Shen,Gnar,Cho'Gath,Jayce,Maokai,Gragas
+2017|JNG|Jarvan IV,Sejuani,Gragas,Zac,Lee Sin,Elise
+2017|MID|Orianna,Syndra,Galio,Malzahar,Corki,Ryze
+2017|BOT|Xayah,Tristana,Kalista,Varus,Sivir
+2017|SUP|Janna,Rakan,Thresh,Taric,Braum
+2018|TOP|Urgot,Aatrox,Sion,Ornn,Irelia,Gangplank
+2018|JNG|Xin Zhao,Gragas,Skarner,Kindred,Olaf,Camille
+2018|MID|Ryze,Aatrox,Syndra,Akali,Swain,Viktor,Zoe
+2018|BOT|Kai'Sa,Ezreal,Lucian,Varus,Xayah,Heimerdinger
+2018|SUP|Braum,Alistar,Rakan,Tahm Kench,Leona
+2019|TOP|Gangplank,Kennen,Jayce,Ryze,Akali,Rumble
+2019|JNG|Gragas,Lee Sin,Rek'Sai,Elise,Qiyana,Jarvan IV
+2019|MID|Syndra,LeBlanc,Ryze,Akali,Pantheon,Qiyana
+2019|BOT|Kai'Sa,Xayah,Varus,Ezreal,Sivir
+2019|SUP|Nautilus,Thresh,Tahm Kench,Rakan,Leona,Yuumi
+2020|TOP|Ornn,Gangplank,Camille,Kennen,Renekton,Jayce
+2020|JNG|Graves,Lillia,Nidalee,Kindred,Sett,Olaf
+2020|MID|Orianna,Galio,Zoe,Twisted Fate,Syndra,Lucian
+2020|BOT|Ashe,Senna,Caitlyn,Kai'Sa,Miss Fortune,Jhin
+2020|SUP|Leona,Rakan,Nautilus,Alistar,Bard
+2021|TOP|Gwen,Jayce,Graves,Camille,Gragas,Gnar
+2021|JNG|Xin Zhao,Jarvan IV,Lee Sin,Viego,Trundle,Diana
+2021|MID|LeBlanc,Twisted Fate,Ryze,Syndra,Zoe,Viktor
+2021|BOT|Aphelios,Xayah,Miss Fortune,Tristana,Jhin,Ziggs
+2021|SUP|Leona,Rakan,Lulu,Alistar,Thresh
+2022|TOP|Aatrox,Gwen,Gnar,Sejuani,Ornn,Jax
+2022|JNG|Viego,Wukong,Sejuani,Lee Sin,Maokai,Trundle
+2022|MID|Azir,Sylas,Akali,Ahri,Viktor,LeBlanc
+2022|BOT|Aphelios,Lucian,Varus,Caitlyn,Kalista,Zeri
+2022|SUP|Nami,Renata Glasc,Alistar,Thresh,Rakan,Nautilus
+2023|TOP|K'Sante,Jax,Rumble,Gnar,Aatrox,Renekton
+2023|JNG|Sejuani,Lee Sin,Maokai,Vi,Wukong,Rell
+2023|MID|Azir,Neeko,Jayce,Taliyah,Ahri,Orianna
+2023|BOT|Xayah,Varus,Kai'Sa,Jinx,Aphelios
+2023|SUP|Rakan,Alistar,Rell,Nautilus,Renata Glasc,Lulu
+2024|TOP|K'Sante,Gnar,Rumble,Aatrox,Jax,Renekton
+2024|JNG|Skarner,Xin Zhao,Maokai,Sejuani,Vi,Wukong
+2024|MID|Yone,Azir,Ahri,Taliyah,Galio,Sylas
+2024|BOT|Ashe,Kalista,Varus,Ezreal,Kai'Sa,Xayah
+2024|SUP|Rell,Rakan,Alistar,Renata Glasc,Leona,Nautilus
+2025|TOP|Rumble,K'Sante,Ambessa,Gnar,Renekton,Jayce
+2025|JNG|Xin Zhao,Vi,Pantheon,Trundle,Naafiri,Wukong
+2025|MID|Azir,Taliyah,Orianna,Ryze,Yone,Galio,Sylas
+2025|BOT|Varus,Corki,Ezreal,Kai'Sa,Xayah,Yunara,Sivir
+2025|SUP|Neeko,Alistar,Rell,Nautilus,Bard,Rakan

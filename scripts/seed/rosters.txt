@@ -1,0 +1,222 @@
+# Worlds rosters used by scripts/build-seed.ts when the scraper has not been run.
+# Format: Team Name|SHORT|REGION|PLACEMENT|TOP,JNG,MID,BOT,SUP
+# PLACEMENT: W=Winner F=Finalist SF=Semifinals QF=Quarterfinals G=Groups/Swiss PI=Play-In
+# Lines starting with "@year" open a year; "@year low" marks low roster confidence (from memory, verify with the scraper).
+# Rosters are the most-used starting five. Stats are NOT here: build-seed.ts generates clearly flagged estimates.
+
+@2011 low
+Fnatic|FNC|LEC|W|Shushei,CyanideFI,xPeke,LaMiaZeaLoT,Mellisan
+against All authority|aAa|LEC|F|sOAZ,Linak,Kujaa,Lemon,TheCreed
+Team SoloMid|TSM|LCS|SF|Dyrus,TheOddOne,Reginald,Chaox,Xpecial
+Epik Gamer|EG|LCS|SF|Westrice,Saintvicious,Salce,Pr0lly,BloodWater
+Counter Logic Gaming|CLG|LCS|QF|HotshotGG,Chauster,Bigfatjiji,Doublelift,Elementz
+
+@2012 low
+Taipei Assassins|TPA|PCS|W|Stanley,Lilballz,Toyz,bebe,MiSTakE
+Azubu Frost|AZF|LCK|F|Shy,CloudTemplar,RapidStar,Woong,MadLife
+Moscow Five|M5|LEC|SF|Darien,Diamondprox,Alex Ich,Genja,GoSu Pepper
+Counter Logic Gaming EU|CLG.EU|LEC|SF|Wickd,Snoopeh,Froggen,YellOwStaR,Krepo
+Team WE|WE|LPL|QF|Aluka,CaoMei,Misaya,WeiXiao,Fzzf
+Team SoloMid|TSM|LCS|QF|Dyrus,TheOddOne,Reginald,Chaox,Xpecial
+Team Dignitas|DIG|LCS|QF|Voyboy,Crumbzz,Scarra,Imaqtpie,Patoy
+Counter Logic Gaming|CLG|LCS|G|HotshotGG,Chauster,Link,Doublelift,Aphromoo
+
+@2013
+SK Telecom T1|SKT|LCK|W|Impact,Bengi,Faker,Piglet,PoohManDu
+Royal Club|RC|LPL|F|GoDlike,Lucky,WH,Uzi,Tabe
+Fnatic|FNC|LEC|SF|sOAZ,Cyanide,xPeke,Puszu,YellOwStaR
+NaJin Black Sword|NJBS|LCK|SF|Expession,Watch,Nagne,PraY,Cain
+OMG|OMG|LPL|QF|Gogoing,Loveling,Cool,San,Bigpomelo
+Gambit Gaming|GMB|LEC|QF|Darien,Diamondprox,Alex Ich,Genja,Voidle
+Cloud9|C9|LCS|QF|Balls,Meteos,Hai,Sneaky,LemonNation
+Team SoloMid|TSM|LCS|G|Dyrus,TheOddOne,Reginald,WildTurtle,Xpecial
+
+@2014
+Samsung White|SSW|LCK|W|Looper,DanDy,PawN,imp,Mata
+Star Horn Royal Club|SHR|LPL|F|Cola,inSec,Zz1tai,Uzi,Zero
+Samsung Blue|SSB|LCK|SF|Acorn,Spirit,dade,Deft,Heart
+OMG|OMG|LPL|SF|Gogoing,Loveling,Cool,San,Bigpomelo
+NaJin White Shield|NJWS|LCK|QF|Save,Watch,Nagne,Ohq,Cain
+Edward Gaming|EDG|LPL|QF|Koro1,Clearlove,U,NaMei,Fzzf
+Cloud9|C9|LCS|QF|Balls,Meteos,Hai,Sneaky,LemonNation
+Team SoloMid|TSM|LCS|QF|Dyrus,Amazing,Bjergsen,WildTurtle,Lustboy
+Fnatic|FNC|LEC|G|sOAZ,Cyanide,xPeke,Rekkles,YellOwStaR
+Alliance|ALL|LEC|G|Wickd,Shook,Froggen,Tabzz,Nyph
+SK Gaming|SK|LEC|G|fredy122,Svenskeren,Jesiz,CandyPanda,nRated
+
+@2015
+SK Telecom T1|SKT|LCK|W|MaRin,Bengi,Faker,Bang,Wolf
+KOO Tigers|KOO|LCK|F|Smeb,Hojin,Kuro,PraY,GorillA
+Fnatic|FNC|LEC|SF|Huni,Reignover,Febiven,Rekkles,YellOwStaR
+Origen|OG|LEC|SF|sOAZ,Amazing,xPeke,Niels,Mithy
+ahq e-Sports Club|AHQ|PCS|QF|Ziv,Mountain,Westdoor,AN,Albis
+Edward Gaming|EDG|LPL|QF|Koro1,Clearlove,PawN,Deft,Meiko
+Flash Wolves|FW|PCS|QF|Steak,Karsa,Maple,NL,SwordArT
+KT Rolster|KT|LCK|QF|Ssumday,Score,Nagne,Arrow,Hachani
+Team SoloMid|TSM|LCS|G|Dyrus,Santorin,Bjergsen,WildTurtle,Lustboy
+Cloud9|C9|LCS|G|Balls,Hai,Incarnati0n,Sneaky,LemonNation
+Counter Logic Gaming|CLG|LCS|G|ZionSpartan,Xmithie,Pobelter,Doublelift,aphromoo
+H2k-Gaming|H2K|LEC|G|Odoamne,loulex,Ryu,Hjarnan,KaSing
+
+@2016
+SK Telecom T1|SKT|LCK|W|Duke,Bengi,Faker,Bang,Wolf
+Samsung Galaxy|SSG|LCK|F|CuVee,Ambition,Crown,Ruler,CoreJJ
+ROX Tigers|ROX|LCK|SF|Smeb,Peanut,Kuro,PraY,GorillA
+H2k-Gaming|H2K|LEC|SF|Odoamne,Jankos,Ryu,FORG1VEN,Vander
+Edward Gaming|EDG|LPL|QF|Mouse,Clearlove,Scout,Deft,Meiko
+Cloud9|C9|LCS|QF|Impact,Meteos,Jensen,Sneaky,Smoothie
+Royal Never Give Up|RNG|LPL|QF|Looper,Mlxg,Xiaohu,Uzi,Mata
+ahq e-Sports Club|AHQ|PCS|QF|Ziv,Mountain,Westdoor,AN,Albis
+Team SoloMid|TSM|LCS|G|Hauntzer,Svenskeren,Bjergsen,Doublelift,Biofrost
+Counter Logic Gaming|CLG|LCS|G|Darshan,Xmithie,Huhi,Stixxay,aphromoo
+G2 Esports|G2|LEC|G|Expect,Trick,Perkz,Zven,mithy
+Splyce|SPY|LEC|G|Wunder,Trashy,Sencux,Kobbe,Mikyx
+Flash Wolves|FW|PCS|G|MMD,Karsa,Maple,NL,SwordArT
+INTZ e-Sports|ITZ|CBLOL|G|Yang,Revolta,tockers,micaO,Jockster
+
+@2017
+Samsung Galaxy|SSG|LCK|W|CuVee,Ambition,Crown,Ruler,CoreJJ
+SK Telecom T1|SKT|LCK|F|Huni,Peanut,Faker,Bang,Wolf
+Royal Never Give Up|RNG|LPL|SF|Letme,Mlxg,Xiaohu,Uzi,Ming
+Team WE|WE|LPL|SF|957,Condi,xiye,Mystic,Ben
+Longzhu Gaming|LZ|LCK|QF|Khan,Cuzz,Bdd,PraY,GorillA
+Fnatic|FNC|LEC|QF|sOAZ,Broxah,Caps,Rekkles,Jesiz
+Misfits Gaming|MSF|LEC|QF|Alphari,Maxlore,PowerOfEvil,Hans sama,IgNar
+Cloud9|C9|LCS|QF|Impact,Contractz,Jensen,Sneaky,Smoothie
+Edward Gaming|EDG|LPL|G|Mouse,Clearlove,Scout,iBoy,Meiko
+Team SoloMid|TSM|LCS|G|Hauntzer,Svenskeren,Bjergsen,Doublelift,Biofrost
+Immortals|IMT|LCS|G|Flame,Xmithie,Pobelter,Cody Sun,Olleh
+G2 Esports|G2|LEC|G|Expect,Trick,Perkz,Zven,mithy
+Flash Wolves|FW|PCS|G|MMD,Karsa,Maple,Betty,SwordArT
+ahq e-Sports Club|AHQ|PCS|G|Ziv,Mountain,Westdoor,AN,Albis
+
+@2018
+Invictus Gaming|IG|LPL|W|TheShy,Ning,Rookie,JackeyLove,Baolan
+Fnatic|FNC|LEC|F|sOAZ,Broxah,Caps,Rekkles,Hylissang
+G2 Esports|G2|LEC|SF|Wunder,Jankos,Perkz,Hjarnan,Wadid
+Cloud9|C9|LCS|SF|Licorice,Svenskeren,Jensen,Sneaky,Zeyzal
+KT Rolster|KT|LCK|QF|Smeb,Score,Ucal,Deft,Mata
+Afreeca Freecs|AFS|LCK|QF|Kiin,Spirit,Kuro,Kramer,TusiN
+Royal Never Give Up|RNG|LPL|QF|Letme,Karsa,Xiaohu,Uzi,Ming
+Edward Gaming|EDG|LPL|QF|Ray,Clearlove,Scout,iBoy,Meiko
+Gen.G|GEN|LCK|G|CuVee,Haru,Crown,Ruler,CoreJJ
+Team Liquid|TL|LCS|G|Impact,Xmithie,Pobelter,Doublelift,Olleh
+100 Thieves|100T|LCS|G|Ssumday,AnDa,Ryu,Bang,aphromoo
+Flash Wolves|FW|PCS|G|MMD,Moojin,Maple,Betty,SwordArT
+Team Vitality|VIT|LEC|G|Cabochard,Gilius,Jiizuke,Attila,Jactroll
+
+@2019
+FunPlus Phoenix|FPX|LPL|W|GimGoon,Tian,Doinb,Lwx,Crisp
+G2 Esports|G2|LEC|F|Wunder,Jankos,Caps,Perkz,Mikyx
+SK Telecom T1|SKT|LCK|SF|Khan,Clid,Faker,Teddy,Effort
+Invictus Gaming|IG|LPL|SF|TheShy,Ning,Rookie,JackeyLove,Baolan
+Griffin|GRF|LCK|QF|Sword,Tarzan,Chovy,Viper,Lehends
+DAMWON Gaming|DWG|LCK|QF|Nuguri,Canyon,ShowMaker,Nuclear,BeryL
+Fnatic|FNC|LEC|QF|Bwipo,Broxah,Nemesis,Rekkles,Hylissang
+Splyce|SPY|LEC|QF|Vizicsacsi,Xerxe,Humanoid,Kobbe,Norskeren
+Team Liquid|TL|LCS|G|Impact,Xmithie,Jensen,Doublelift,CoreJJ
+Cloud9|C9|LCS|G|Licorice,Svenskeren,Nisqy,Sneaky,Zeyzal
+Clutch Gaming|CG|LCS|G|Huni,Lira,Damonte,Cody Sun,Vulcan
+Royal Never Give Up|RNG|LPL|G|Langx,Karsa,Xiaohu,Uzi,Ming
+
+@2020
+DAMWON Gaming|DWG|LCK|W|Nuguri,Canyon,ShowMaker,Ghost,BeryL
+Suning|SN|LPL|F|Bin,SofM,Angel,huanfeng,SwordArT
+G2 Esports|G2|LEC|SF|Wunder,Jankos,Caps,Perkz,Mikyx
+Top Esports|TES|LPL|SF|369,Karsa,knight,JackeyLove,yuyanjia
+DRX|DRX|LCK|QF|Doran,Pyosik,Chovy,Deft,Keria
+Gen.G|GEN|LCK|QF|Rascal,Clid,Bdd,Ruler,Life
+JD Gaming|JDG|LPL|QF|Zoom,Kanavi,Yagao,LokeN,LvMao
+Fnatic|FNC|LEC|QF|Bwipo,Selfmade,Nisqy,Rekkles,Hylissang
+Rogue|RGE|LEC|G|Finn,Inspired,Larssen,Hans sama,Vander
+Team SoloMid|TSM|LCS|G|Broken Blade,Spica,Bjergsen,Doublelift,Biofrost
+FlyQuest|FLY|LCS|G|V1per,Santorin,PowerOfEvil,WildTurtle,IgNar
+Team Liquid|TL|LCS|G|Impact,Broxah,Jensen,Tactical,CoreJJ
+LGD Gaming|LGD|LPL|G|Langx,Peanut,xiye,Kramer,Mark
+
+@2021
+EDward Gaming|EDG|LPL|W|Flandre,Jiejie,Scout,Viper,Meiko
+DWG KIA|DK|LCK|F|Khan,Canyon,ShowMaker,Ghost,BeryL
+T1|T1|LCK|SF|Canna,Oner,Faker,Gumayusi,Keria
+Gen.G|GEN|LCK|SF|Rascal,Clid,Bdd,Ruler,Life
+Royal Never Give Up|RNG|LPL|QF|Xiaohu,Wei,Cryin,GALA,Ming
+Hanwha Life Esports|HLE|LCK|QF|Morgan,Willer,Chovy,Deft,Vsta
+MAD Lions|MAD|LEC|QF|Armut,Elyoya,Humanoid,Carzzy,Kaiser
+Cloud9|C9|LCS|QF|Fudge,Blaber,Perkz,Zven,Vulcan
+FunPlus Phoenix|FPX|LPL|G|Nuguri,Tian,Doinb,Lwx,Crisp
+LNG Esports|LNG|LPL|G|Ale,Tarzan,Icon,Light,Iwandy
+Fnatic|FNC|LEC|G|Adam,Bwipo,Nisqy,Upset,Hylissang
+Rogue|RGE|LEC|G|Odoamne,Inspired,Larssen,Hans sama,Trymbi
+100 Thieves|100T|LCS|G|Ssumday,Closer,Abbedagge,FBI,huhi
+Team Liquid|TL|LCS|G|Alphari,Santorin,Jensen,Tactical,CoreJJ
+PSG Talon|PSG|PCS|G|Hanabi,River,Maple,Unified,Kaiwing
+
+@2022
+DRX|DRX|LCK|W|Kingen,Pyosik,Zeka,Deft,BeryL
+T1|T1|LCK|F|Zeus,Oner,Faker,Gumayusi,Keria
+Gen.G|GEN|LCK|SF|Doran,Peanut,Chovy,Ruler,Lehends
+JD Gaming|JDG|LPL|SF|369,Kanavi,Yagao,Hope,Missing
+EDward Gaming|EDG|LPL|QF|Flandre,JunJia,Scout,Viper,Meiko
+Top Esports|TES|LPL|QF|Wayward,Tian,knight,JackeyLove,Mark
+Rogue|RGE|LEC|QF|Odoamne,Malrang,Larssen,Comp,Trymbi
+DWG KIA|DK|LCK|QF|Nuguri,Canyon,ShowMaker,deokdam,Kellin
+Royal Never Give Up|RNG|LPL|G|Bin,Wei,Xiaohu,GALA,Ming
+G2 Esports|G2|LEC|G|BrokenBlade,Jankos,Caps,Flakked,Targamas
+Fnatic|FNC|LEC|G|Wunder,Razork,Humanoid,Upset,Hylissang
+MAD Lions|MAD|LEC|G|Armut,Elyoya,Nisqy,UNF0RGIVEN,Kaiser
+100 Thieves|100T|LCS|G|Ssumday,Closer,Abbedagge,FBI,huhi
+Cloud9|C9|LCS|G|Fudge,Blaber,Jensen,Berserker,Zven
+Evil Geniuses|EG|LCS|G|Impact,Inspired,jojopyun,Danny,Vulcan
+GAM Esports|GAM|VCS|G|Kiaya,Levi,Emo,EasyLove,Elio
+
+@2023
+T1|T1|LCK|W|Zeus,Oner,Faker,Gumayusi,Keria
+Weibo Gaming|WBG|LPL|F|TheShy,Weiwei,Xiaohu,Light,Crisp
+JD Gaming|JDG|LPL|SF|369,Kanavi,knight,Ruler,MISSING
+LNG Esports|LNG|LPL|SF|Zika,Tarzan,Scout,GALA,Hang
+Gen.G|GEN|LCK|QF|Doran,Peanut,Chovy,Peyz,Delight
+KT Rolster|KT|LCK|QF|Kiin,Cuzz,Bdd,Aiming,Lehends
+Bilibili Gaming|BLG|LPL|QF|Bin,Xun,Yagao,Elk,ON
+NRG|NRG|LCS|QF|Dhokla,Contractz,Palafox,FBI,IgNar
+G2 Esports|G2|LEC|G|BrokenBlade,Yike,Caps,Hans Sama,Mikyx
+Fnatic|FNC|LEC|G|Oscarinin,Razork,Humanoid,Noah,Trymbi
+MAD Lions|MAD|LEC|G|Myrwn,Elyoya,Fresskowy,Carzzy,Hylissang
+Cloud9|C9|LCS|G|Fudge,Blaber,EMENES,Berserker,Zven
+Team Liquid|TL|LCS|G|Summit,Pyosik,APA,Yeon,CoreJJ
+GAM Esports|GAM|VCS|G|Kiaya,Levi,Emo,Slayder,Palette
+PSG Talon|PSG|PCS|G|Azhi,JunJie,Maple,Betty,Woody
+Team BDS|BDS|LEC|G|Adam,Sheo,nuc,Crownie,Labrov
+
+@2024
+T1|T1|LCK|W|Zeus,Oner,Faker,Gumayusi,Keria
+Bilibili Gaming|BLG|LPL|F|Bin,Xun,knight,Elk,ON
+Gen.G|GEN|LCK|SF|Kiin,Canyon,Chovy,Peyz,Lehends
+Weibo Gaming|WBG|LPL|SF|Breathe,Tarzan,Xiaohu,Light,Crisp
+Hanwha Life Esports|HLE|LCK|QF|Doran,Peanut,Zeka,Viper,Delight
+LNG Esports|LNG|LPL|QF|Zika,Weiwei,Scout,GALA,Hang
+Top Esports|TES|LPL|QF|369,Tian,Creme,JackeyLove,Meiko
+FlyQuest|FLY|LCS|QF|Bwipo,Inspired,Quad,Massu,Busio
+G2 Esports|G2|LEC|G|BrokenBlade,Yike,Caps,Hans Sama,Mikyx
+Fnatic|FNC|LEC|G|Oscarinin,Razork,Humanoid,Noah,Jun
+MAD Lions KOI|MDK|LEC|G|Myrwn,Elyoya,Fresskowy,Supa,Alvaro
+Team Liquid|TL|LCS|G|Impact,UmTi,APA,Yeon,CoreJJ
+Dplus KIA|DK|LCK|G|Kingen,Lucid,ShowMaker,Aiming,Kellin
+100 Thieves|100T|LCS|G|Sniper,River,Quid,FBI,Eyla
+PSG Talon|PSG|PCS|G|Azhi,Karsa,Maple,Betty,Woody
+GAM Esports|GAM|VCS|G|Kiaya,Levi,Emo,EasyLove,Elio
+paiN Gaming|PNG|CBLOL|G|Wizer,CarioK,dyNquedo,TitaN,Kuri
+
+@2025 low
+T1|T1|LCK|W|Doran,Oner,Faker,Gumayusi,Keria
+KT Rolster|KT|LCK|F|PerfecT,Cuzz,Bdd,deokdam,Peter
+Gen.G|GEN|LCK|SF|Kiin,Canyon,Chovy,Ruler,Duro
+Top Esports|TES|LPL|SF|369,naiyou,Creme,JackeyLove,Hang
+Hanwha Life Esports|HLE|LCK|QF|Zeus,Kanavi,Zeka,Viper,Delight
+Anyone's Legend|AL|LPL|QF|Flandre,Tarzan,Shanks,Hope,Kael
+Invictus Gaming|IG|LPL|QF|TheShy,Wei,Rookie,GALA,Meiko
+Bilibili Gaming|BLG|LPL|G|Bin,Beichuan,knight,Elk,ON
+G2 Esports|G2|LEC|G|BrokenBlade,SkewMond,Caps,Hans Sama,Labrov
+Fnatic|FNC|LEC|G|Oscarinin,Razork,Poby,Upset,Mikyx
+Movistar KOI|MKOI|LEC|G|Myrwn,Elyoya,jojopyun,Supa,Alvaro
+FlyQuest|FLY|LCS|G|Gakgos,Gryffinn,Quad,Massu,Cryogen
+CTBC Flying Oyster|CFO|PCS|G|Driver,JunJie,HongQ,Doggo,Kaiwing
