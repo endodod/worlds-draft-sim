@@ -36,8 +36,8 @@ function OfferHeader({ t }: { t: Team }) {
   );
 }
 
-const OUT_MS = 420;
-const POP_MS = 1300;
+const OUT_MS = 650;
+const POP_MS = 900;
 /** deal-in delay per card: banner shows first, then columns left to right, roles top to bottom */
 const dealDelay = (col: number, row: number) => `${260 + col * 110 + row * 70}ms`;
 
@@ -54,6 +54,8 @@ export function DraftScreen({ cfg, onDone }: { cfg: RunConfig; onDone: (picks: D
   const [phase, setPhase] = useState<'idle' | 'out' | 'pop'>('idle');
   const [pop, setPop] = useState<{ title: string; sub: string } | null>(null);
   const [pickedKey, setPickedKey] = useState<string | null>(null);
+  /** which of several same-role players is shown, per team+role */
+  const [alt, setAlt] = useState<Record<string, number>>({});
   const timers = useRef<number[]>([]);
   useEffect(() => () => timers.current.forEach(clearTimeout), []);
   const dealing = phase !== 'idle';
@@ -61,6 +63,7 @@ export function DraftScreen({ cfg, onDone }: { cfg: RunConfig; onDone: (picks: D
   const transition = (banner: { title: string; sub: string }, apply: () => void) => {
     setPhase('out');
     setPop(banner);
+    window.scrollTo({ top: 0, behavior: 'smooth' });
     timers.current.push(
       window.setTimeout(() => {
         apply();
@@ -87,7 +90,7 @@ export function DraftScreen({ cfg, onDone }: { cfg: RunConfig; onDone: (picks: D
       return;
     }
     setPickedKey(team.id + player.playerId + player.role);
-    transition({ title: `${player.handle} locked in`, sub: `Round ${next.length + 1} of 5 · new rosters` }, () => {
+    transition({ title: `${player.handle} locked in`, sub: `Loading round ${next.length + 1} of 5…` }, () => {
       setPicks(next);
       setOffers((o) => [...o, offersForRound(cfg, next.length, next, [...o.flat().map((t) => t.id), ...discarded])]);
     });
@@ -98,7 +101,7 @@ export function DraftScreen({ cfg, onDone }: { cfg: RunConfig; onDone: (picks: D
     if (rerollsLeft <= 0 || dealing) return;
     const used = rerolls + 1;
     const seen = [...offers.flat().map((t) => t.id), ...discarded];
-    transition({ title: 'Rerolled', sub: `${PLAYER_DRAFT.rerolls - used} reroll${PLAYER_DRAFT.rerolls - used === 1 ? '' : 's'} left` }, () => {
+    transition({ title: 'Reloading rosters', sub: `${PLAYER_DRAFT.rerolls - used} reroll${PLAYER_DRAFT.rerolls - used === 1 ? '' : 's'} left after this` }, () => {
       setRerolls(used);
       setDiscarded((d) => [...d, ...(offers[round] ?? []).map((t) => t.id)]);
       setOffers((o) => [...o.slice(0, round), offersForRound(cfg, round, picks, seen, used)]);
@@ -194,17 +197,6 @@ export function DraftScreen({ cfg, onDone }: { cfg: RunConfig; onDone: (picks: D
         </SectionTitle>
         {progress}
         <div className="relative">
-        {phase !== 'idle' && pop && (
-          <div className="pointer-events-none absolute inset-x-0 top-24 z-20 flex justify-center">
-            <div key={deal + phase} className={`${phase === 'out' ? 'pop-in' : 'pop-out'} flex items-center gap-3 rounded-2xl border border-gold-500/50 bg-ink-900/95 px-6 py-4 shadow-glow backdrop-blur`}>
-              <span className="pop-spin text-3xl text-gold-400">⟳</span>
-              <div>
-                <div className="font-display text-3xl font-bold uppercase leading-none tracking-wide text-white">{pop.title}</div>
-                <div className="mt-1 text-xs font-semibold uppercase tracking-[0.16em] text-gold-400">{pop.sub}</div>
-              </div>
-            </div>
-          </div>
-        )}
         <div className="scrollbar-thin -mx-4 overflow-x-auto px-4 pb-2">
           {/* role-aligned board: every role starts at the same height in all three rosters */}
           <div key={deal} className={`grid min-w-[820px] grid-cols-[44px_repeat(3,minmax(0,1fr))] gap-x-3 gap-y-3 ${dealing ? 'pointer-events-none' : ''} ${phase === 'out' ? 'board-out' : ''}`}>
@@ -248,8 +240,22 @@ export function DraftScreen({ cfg, onDone }: { cfg: RunConfig; onDone: (picks: D
                   return (
                     <div key={t.id + r} className="deal-card flex flex-col gap-2" style={{ animationDelay: dealDelay(c, ROLES.indexOf(r) + 1) }}>
                       {list.length === 0 && <div className="flex h-full min-h-[120px] items-center justify-center rounded-2xl border border-dashed border-white/10 text-xs text-slate-600">No {ROLE_NAME[r].toLowerCase()} on this roster</div>}
-                      {list.map(({ p, i }) => (
-                        <div key={p.playerId + p.role} className={pickedKey === t.id + p.playerId + p.role ? 'picked-card' : ''}>
+                      {list.length > 1 && (
+                        <div className="flex items-center gap-2">
+                          <div className="seg flex-1">
+                            {list.map(({ p }, k) => (
+                              <button key={p.playerId} aria-pressed={(alt[t.id + r] ?? 0) === k} className="flex-1 truncate" onClick={() => setAlt((a) => ({ ...a, [t.id + r]: k }))}>
+                                {p.handle} <span className="tabular-nums text-slate-500">{rated(p).rating.strength}</span>
+                              </button>
+                            ))}
+                          </div>
+                          <span className="chip shrink-0 bg-hex-500/15 text-hex-400" title="This roster used more than one player in this role">
+                            {list.length} players
+                          </span>
+                        </div>
+                      )}
+                      {list.filter((_, k) => k === Math.min(alt[t.id + r] ?? 0, list.length - 1)).map(({ p, i }) => (
+                        <div key={p.playerId + p.role} className={`${pickedKey === t.id + p.playerId + p.role ? 'picked-card' : ''} ${list.length > 1 ? 'fade-up' : ''}`}>
                           <PlayerCard variant="offer" p={rated(p)} onPick={() => pick(t, i)} />
                         </div>
                       ))}
@@ -265,6 +271,23 @@ export function DraftScreen({ cfg, onDone }: { cfg: RunConfig; onDone: (picks: D
       </div>
       <div className="xl:sticky xl:top-20 xl:self-start">
         <TeamPanel players={picks.map((p) => p.player)} rating={rating} />
+      </div>
+      {phase !== 'idle' && pop && <ReloadModal key={deal} title={pop.title} sub={pop.sub} closing={phase === 'pop'} />}
+    </div>
+  );
+}
+
+/** Short, centered loading popup shown while the board reloads (fixed, so it is visible from anywhere on the page). */
+function ReloadModal({ title, sub, closing }: { title: string; sub: string; closing: boolean }) {
+  return (
+    <div className={`fixed inset-0 z-50 flex items-center justify-center bg-ink-950/60 backdrop-blur-[2px] ${closing ? 'modal-fade-out' : 'modal-fade-in'}`} role="status" aria-live="polite">
+      <div className={`w-[min(340px,calc(100vw-32px))] rounded-2xl border border-white/10 bg-ink-900 p-5 text-center shadow-2xl ${closing ? '' : 'modal-pop'}`}>
+        <div className="mx-auto mb-3 h-9 w-9 animate-spin rounded-full border-[3px] border-white/10 border-t-gold-400" />
+        <div className="font-display text-2xl font-bold uppercase leading-none tracking-wide text-white">{title}</div>
+        <div className="mt-1.5 text-xs text-slate-400">{sub}</div>
+        <div className="mt-4 h-1 overflow-hidden rounded-full bg-white/[0.06]">
+          <div className="modal-progress h-full rounded-full bg-gradient-to-r from-gold-500 to-gold-300" />
+        </div>
       </div>
     </div>
   );

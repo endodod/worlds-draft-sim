@@ -2,6 +2,8 @@ import type { RatedPlayer } from '../lib/types';
 import { poolSummary, tierOf } from '../lib/draft';
 import { Avatar, ChampIcon, RegionBadge, RoleIcon, StatBar, StrengthBadge, TagChip, TIER_STYLE } from './atoms';
 
+const FIELD_NAME: Record<string, string> = { csd15: 'CS diff @15', gd15: 'gold diff @15', xpd15: 'XP diff @15', firstBloodRate: 'first blood %', dpm: 'damage/min', damageShare: 'damage share', visionPerMin: 'vision/min' };
+
 const EVENT_SHORT: Record<string, string> = { 'OGN Champions': 'OGN', 'First Stand': 'FST' };
 
 export function seasonLine(p: RatedPlayer): string {
@@ -26,7 +28,7 @@ function ExperiencePips({ value }: { value: number }) {
  */
 export function PlayerCard({ p, onPick, disabled, compact, variant = 'full' }: { p: RatedPlayer; onPick?: () => void; disabled?: boolean; compact?: boolean; variant?: 'full' | 'offer' }) {
   const r = p.rating;
-  const est = p.dataQuality === 'estimated' ? 'All stats estimated' : p.estimatedFields?.length ? `Derived: ${p.estimatedFields.join(', ')}` : '';
+  const est = p.dataQuality === 'estimated' ? 'All stats estimated' : p.estimatedFields?.length ? `Estimated: ${p.estimatedFields.map((f) => FIELD_NAME[f] ?? f).join(', ')}` : '';
   const Wrapper = onPick ? 'button' : 'div';
   const pool = poolSummary(p);
   const champs = [...p.champions].sort((a, b) => b.games - a.games);
@@ -114,7 +116,7 @@ export function PlayerCard({ p, onPick, disabled, compact, variant = 'full' }: {
           <span>
             KDA {p.season?.kda ?? p.stats.kda} · KP {Math.round((p.season?.kp ?? p.stats.kp) * 100)}%{p.season?.dpm ? ` · DPM ${p.season.dpm}` : ''}
           </span>
-          {est && <span className="italic text-slate-600" title="15-minute diffs and first-blood rate are derived from per-minute gold/CS">{est}</span>}
+          {est && <span className="italic text-slate-600" title="Leaguepedia scoreboards have no 15-minute snapshots or first-blood data, so these are estimated from the player's league-adjusted gold and CS per minute versus the role average. Older seasons also lack damage and vision data.">{est}</span>}
         </div>
       )}
     </Wrapper>

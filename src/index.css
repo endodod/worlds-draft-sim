@@ -47,11 +47,13 @@ body {
 .board-out .deal-card:has(.picked-card) { animation: picked-out .4s ease-in forwards !important; }
 @keyframes picked-out { 0% { transform: scale(1); } 40% { transform: scale(1.04); opacity: 1 } 100% { transform: scale(.98); opacity: 0 } }
 .picked-card > * { box-shadow: 0 0 0 2px #e2c97e, 0 0 40px -6px rgba(226,201,126,.8); border-color: #e2c97e; }
-/* pop banner */
-@keyframes pop-in { 0% { opacity: 0; transform: scale(.6) } 60% { opacity: 1; transform: scale(1.08) } 100% { opacity: 1; transform: scale(1) } }
-@keyframes pop-out { 0%, 55% { opacity: 1; transform: scale(1) } 100% { opacity: 0; transform: scale(.92) translateY(-8px) } }
-.pop-in { animation: pop-in .38s cubic-bezier(.2,.9,.3,1.3) both; }
-.pop-out { animation: pop-out 1.3s ease-in both; }
-@keyframes spin-once { to { transform: rotate(360deg) } }
-.pop-spin { display: inline-block; animation: spin-once .9s cubic-bezier(.4,0,.2,1) infinite; }
-@media (prefers-reduced-motion: reduce) { .deal-card, .board-out .deal-card, .pop-in, .pop-out, .pop-spin { animation: none !important; } }
+/* reload modal */
+@keyframes modal-fade-in { from { opacity: 0 } to { opacity: 1 } }
+@keyframes modal-fade-out { 0%, 50% { opacity: 1 } 100% { opacity: 0 } }
+@keyframes modal-pop { 0% { opacity: 0; transform: translateY(6px) scale(.94) } 100% { opacity: 1; transform: none } }
+@keyframes modal-progress { from { width: 8% } to { width: 100% } }
+.modal-fade-in { animation: modal-fade-in .18s ease-out both; }
+.modal-fade-out { animation: modal-fade-out .9s ease-in both; pointer-events: none; }
+.modal-pop { animation: modal-pop .28s cubic-bezier(.2,.9,.3,1.15) both; }
+.modal-progress { animation: modal-progress .65s cubic-bezier(.4,0,.2,1) both; }
+@media (prefers-reduced-motion: reduce) { .deal-card, .board-out .deal-card, .modal-fade-in, .modal-fade-out, .modal-pop, .modal-progress { animation: none !important; } }
