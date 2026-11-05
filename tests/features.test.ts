@@ -116,6 +116,18 @@ describe('draft plans', () => {
     expect(replaced.comfort).toBeGreaterThan(replaced.balanced);
     expect(replaced.balanced).toBeGreaterThan(replaced.deep);
   });
+  it('a banned planned pick is replaced from the player own pool, not a random champion', () => {
+    let replaced = 0;
+    for (let i = 0; i < 200; i++) {
+      const tt = t();
+      const d = runDraft(tt as never, { fearless: false, locked: new Set(), winningChamps: new Set() }, makeRng('own' + i), ['comfort', undefined]);
+      for (const e of d.plans[0]!.entries.filter((x) => x.status !== 'ok')) {
+        replaced++;
+        expect(tt[0].players[e.playerIdx].champions.map((c) => c.name)).toContain(e.final);
+      }
+    }
+    expect(replaced).toBeGreaterThan(50);
+  });
   it('tiers come from games that year', () => {
     expect(tierOf(10, 0)).toBe('signature');
     expect(tierOf(10, 5)).toBe('comfort');

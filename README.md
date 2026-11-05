@@ -28,7 +28,7 @@ npm run build      # type-check + production build into dist/
 | Medium | ranks 3–5 | 20% |
 | Safe | pocket picks (1–2 games that year) or the tail of the pool | 6% |
 
-Risk is scaled by how meta the champion is (`× (0.7 + 0.6·meta)`). A planned pick the opponent reads is banned first. A banned (or stolen) planned pick is replaced by a random low-pool (1–2 games) or off-pool champion, so the greedier the plan, the more often a few players end up on something they barely play. You only choose the plan; picks, bans and replacements happen automatically. Simulating a stage without playing uses the AI draft. Your plans are part of the run: the series and everything after it are re-simulated from them, deterministically.
+Risk is scaled by how meta the champion is (`× (0.7 + 0.6·meta)`). A planned pick the opponent reads is banned first. A banned (or stolen) planned pick is replaced by the player's next champion from their own pool that year, in line with the plan: Aggressive takes the next-best champion, Medium the next comfort pick (3+ games), Safe the next pocket pick. Champions a teammate still plans to play are skipped. Only when a player's real pool is used up (bans plus fearless) do they fall back to the year's meta (off-pool) and then the hidden default pool. So a greedy plan costs you your very best champions to bans, not random picks. You only choose the plan; picks, bans and replacements happen automatically. Simulating a stage without playing uses the AI draft. Your plans are part of the run: the series and everything after it are re-simulated from them, deterministically.
 
 ## Data
 

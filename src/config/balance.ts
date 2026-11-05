@@ -139,8 +139,6 @@ export const POOL = {
 export const PLAN = {
   /** chance each planned pick gets read and banned by the opponent */
   banRisk: { comfort: 0.42, balanced: 0.2, deep: 0.06 } as Record<string, number>,
-  /** replacement for a banned planned pick: chance it's a low-pool champion (else an off-pool one) */
-  lowPoolReplacement: 0.5,
 };
 
 // ---------- Series fatigue and pressure ----------

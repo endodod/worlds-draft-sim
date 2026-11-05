@@ -178,7 +178,9 @@ const SEQUENCE: { side: 0 | 1; type: 'ban' | 'pick' }[] = [
 /**
  * Runs a full pick/ban. `plans[side]` (the user's team) replaces the AI's pick logic for that side:
  * each planned champion is exposed (read by the opponent) with `banRisk`, exposed picks are banned first,
- * and a banned or stolen planned pick is replaced by a random low-pool or off-pool champion.
+ * and a banned or stolen planned pick is replaced by the player's next champion from their own pool, in line with the
+ * plan (aggressive: next best, medium: next comfort pick, safe: next pocket pick). Only when the real pool is gone does
+ * the player fall back to the year's meta (off-pool) and then the default pool.
  */
 export function runDraft(teams: [DraftTeam, DraftTeam], state: SeriesDraftState, rng: Rng, plans: [DraftPlan | undefined, DraftPlan | undefined] = [undefined, undefined]): DraftResult {
   const unavailable = new Set<string>(state.fearless ? state.locked : []);
@@ -212,7 +214,7 @@ export function runDraft(teams: [DraftTeam, DraftTeam], state: SeriesDraftState,
     return best;
   };
 
-  /** Pick for a planned side: the planned champion if still free, else a random low-pool / off-pool replacement. */
+  /** Pick for a planned side: the planned champion if still free, else the next champion of the player's own pool for that plan. */
   const plannedFor = (side: 0 | 1, idx: number): { opt: Option; v: number; status: PlanEntry['status'] } | null => {
     const want = planned[side]![idx];
     const opts = options[side][idx].filter((o) => !unavailable.has(o.champion));
@@ -220,11 +222,24 @@ export function runDraft(teams: [DraftTeam, DraftTeam], state: SeriesDraftState,
     const hit = opts.find((o) => o.champion === want);
     if (hit) return { opt: hit, v: championValue(hit, teams[side].year, current(side)), status: 'ok' };
     const status: PlanEntry['status'] = bans[(1 - side) as 0 | 1].includes(want) ? 'banned' : 'taken';
-    const low = opts.filter((o) => o.comfort && o.games <= 2);
-    const off = opts.filter((o) => !o.comfort);
-    const list = rng.chance(PLAN.lowPoolReplacement) && low.length ? low : off.length ? off : low.length ? low : opts;
-    const opt = rng.pick(list);
-    return { opt, v: championValue(opt, teams[side].year, current(side)), status };
+    // don't take a champion a teammate still plans to play
+    const reserved = new Set(planned[side]!.filter((_, i) => i !== idx && !filled(side).has(i)));
+    const free = opts.filter((o) => !reserved.has(o.champion));
+    const pool = free.length ? free : opts;
+    const value = (o: Option) => championValue(o, teams[side].year, current(side));
+    const byValue = (list: Option[]) => [...list].sort((a, b) => value(b) - value(a));
+    const own = byValue(pool.filter((o) => o.comfort));
+    const plan = plans[side]!;
+    // same strategy as the plan: aggressive = best remaining, medium = comfort picks (3+ games) first, safe = pocket picks first
+    const preferred =
+      plan === 'comfort'
+        ? own
+        : plan === 'balanced'
+          ? [...own.filter((o) => o.games >= POOL.comfortGames), ...own.filter((o) => o.games < POOL.comfortGames)]
+          : [...own.filter((o) => o.games <= 2), ...own.filter((o) => o.games > 2)];
+    // only when the real pool is gone: the year's meta (off-pool), then the default pool
+    const opt = preferred[0] ?? byValue(pool.filter((o) => o.tier === 'off'))[0] ?? byValue(pool)[0];
+    return { opt, v: value(opt), status };
   };
 
   for (const step of SEQUENCE) {
