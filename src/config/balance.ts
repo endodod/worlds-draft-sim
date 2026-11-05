@@ -11,20 +11,22 @@ export const STRENGTH = {
   scale: 22,
   /** games shrinkage: reliability = games / (games + k) */
   shrinkK: 5,
+  /** weight of Worlds-only performance blended into the full-year rating (× games/(games+shrinkK)) */
+  worldsWeight: 0.4,
   /** minimum same-role-same-year sample size before falling back to all-years role pool */
   minSample: 4,
   /** placement score used in "results" z-score */
   placementScore: { Winner: 6, Finalist: 5, Semifinals: 4, Quarterfinals: 3, Groups: 1.5, 'Play-In': 0 } as Record<string, number>,
   /** Sub-score weights inside each category */
   laningWeights: { gd15: 0.45, csd15: 0.3, xpd15: 0.25 },
-  resultsWeights: { winRate: 0.6, placement: 0.4 },
+  resultsWeights: { winRate: 0.45, placement: 0.55 },
   /** per role: category weights and impact-component weights */
   role: {
-    TOP: { laning: 0.45, impact: 0.3, results: 0.25, impactW: { kda: 0.25, kp: 0.15, dpm: 0.3, damageShare: 0.25, vision: 0.0, firstBlood: 0.05 } },
-    JNG: { laning: 0.2, impact: 0.5, results: 0.3, impactW: { kda: 0.2, kp: 0.3, dpm: 0.05, damageShare: 0.05, vision: 0.2, firstBlood: 0.2 } },
-    MID: { laning: 0.35, impact: 0.4, results: 0.25, impactW: { kda: 0.25, kp: 0.2, dpm: 0.25, damageShare: 0.25, vision: 0.0, firstBlood: 0.05 } },
-    BOT: { laning: 0.3, impact: 0.45, results: 0.25, impactW: { kda: 0.2, kp: 0.1, dpm: 0.35, damageShare: 0.35, vision: 0.0, firstBlood: 0.0 } },
-    SUP: { laning: 0.15, impact: 0.55, results: 0.3, impactW: { kda: 0.15, kp: 0.35, dpm: 0.0, damageShare: 0.0, vision: 0.35, firstBlood: 0.15 } },
+    TOP: { laning: 0.38, impact: 0.27, results: 0.35, impactW: { kda: 0.25, kp: 0.15, dpm: 0.3, damageShare: 0.25, vision: 0.0, firstBlood: 0.05 } },
+    JNG: { laning: 0.17, impact: 0.43, results: 0.4, impactW: { kda: 0.2, kp: 0.3, dpm: 0.05, damageShare: 0.05, vision: 0.2, firstBlood: 0.2 } },
+    MID: { laning: 0.3, impact: 0.35, results: 0.35, impactW: { kda: 0.25, kp: 0.2, dpm: 0.25, damageShare: 0.25, vision: 0.0, firstBlood: 0.05 } },
+    BOT: { laning: 0.26, impact: 0.39, results: 0.35, impactW: { kda: 0.2, kp: 0.1, dpm: 0.35, damageShare: 0.35, vision: 0.0, firstBlood: 0.0 } },
+    SUP: { laning: 0.13, impact: 0.47, results: 0.4, impactW: { kda: 0.15, kp: 0.35, dpm: 0.0, damageShare: 0.0, vision: 0.35, firstBlood: 0.15 } },
   } as Record<Role, { laning: number; impact: number; results: number; impactW: Record<'kda' | 'kp' | 'dpm' | 'damageShare' | 'vision' | 'firstBlood', number> }>,
 };
 
@@ -49,6 +51,34 @@ export const PLAYSTYLE = {
   objectiveZ: 0.9,
   clutchMinWorldsGames: 8,
   clutchKdaRatio: 1.2,
+  // negative traits
+  mistakeKdaZ: -1.1,
+  weakLanerZ: -0.9,
+  passiveKpZ: -0.9,
+  /** passive / poor-vision only count as liabilities on teams that weren't winning (dominant teams dilute KP and play to their own style) */
+  liabilityMaxWinRateZ: 0.3,
+  poorVisionZ: -0.9,
+  chokerKdaRatio: 0.5,
+  /** one-trick: fewer than this many comfort champions (>= 3 games) and the top champion takes >= oneTrickShare of games */
+  oneTrickMaxComfort: 4,
+  oneTrickShare: 0.3,
+};
+
+// ---------- Negative traits: team-rating penalty and in-game effects ----------
+export const TRAITS = {
+  rating: { mistake_prone: -1.5, weak_laner: -1, one_trick: -1, choker: -1, passive: -1, poor_vision: -1 } as Record<string, number>,
+  /** mistake-prone: chance per mid/late-game tick of an unforced throw (per such player) */
+  throwChance: 0.05,
+  /** weak laner: lane logit penalty */
+  weakLaneLogit: 0.35,
+  /** choker: pressure crack chance multiplier */
+  chokerCrack: 2.2,
+  /** passive: teamfight / gank logit penalty per passive player */
+  passiveLogit: 0.12,
+  /** poor vision: pick and gank logit swing per poor-vision player (in favour of the enemy) */
+  poorVisionLogit: 0.25,
+  /** one-trick: extra ban priority on their signature champion */
+  oneTrickBan: 0.6,
 };
 
 // ---------- Synergy ----------
@@ -94,7 +124,7 @@ export const POOL = {
   /** in-game rating delta = clamp((mastery - pivot) * scale, min, max) */
   masteryPivot: 0.8,
   masteryScale: 25,
-  deltaMin: -12,
+  deltaMin: -16,
   deltaMax: 5,
   /** synergy: comfort champions (>= comfortGames) per player */
   shallowBelow: 4,
@@ -146,6 +176,7 @@ export const DRAFT = {
   /** mastery = (games/(games+masteryK)) * (0.5 + winRate) ... normalized */
   masteryK: 3,
   fallbackMastery: 0.3, // for champions not in the player's pool but in the role meta
+  defaultMastery: 0.16, // default pool: any champion ever played in the role (much worse than the real pool)
   offMetaStrength: 0.55,
   compFitMax: 0.25, // up to +25% value for filling a comp need
   banAdaptBonus: 0.35, // extra ban priority for champions that won earlier games

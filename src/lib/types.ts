@@ -17,7 +17,16 @@ export type Playstyle =
   | 'peeler'
   | 'engager'
   | 'objective_control'
-  | 'clutch';
+  | 'clutch'
+  // negative traits (liabilities)
+  | 'mistake_prone'
+  | 'weak_laner'
+  | 'one_trick'
+  | 'choker'
+  | 'passive'
+  | 'poor_vision';
+
+export const NEGATIVE_TRAITS: Playstyle[] = ['mistake_prone', 'weak_laner', 'one_trick', 'choker', 'passive', 'poor_vision'];
 
 export type DataQuality = 'scraped' | 'estimated';
 

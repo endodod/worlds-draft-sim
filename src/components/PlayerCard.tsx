@@ -1,4 +1,5 @@
 import type { RatedPlayer } from '../lib/types';
+import { NEGATIVE_TRAITS } from '../lib/types';
 import { poolSummary, tierOf } from '../lib/draft';
 import { Avatar, ChampIcon, RegionBadge, RoleIcon, StatBar, StrengthBadge, TagChip, TIER_STYLE } from './atoms';
 
@@ -26,13 +27,47 @@ function ExperiencePips({ value }: { value: number }) {
  * Player card. `offer` (draft board) has a fixed layout so every card in a role row lines up;
  * `compact` is a one-line summary; default is the full card.
  */
-export function PlayerCard({ p, onPick, disabled, compact, variant = 'full' }: { p: RatedPlayer; onPick?: () => void; disabled?: boolean; compact?: boolean; variant?: 'full' | 'offer' }) {
+export function PlayerCard({ p, onPick, disabled, compact, variant = 'full' }: { p: RatedPlayer; onPick?: () => void; disabled?: boolean; compact?: boolean; variant?: 'full' | 'offer' | 'mini' }) {
   const r = p.rating;
   const est = p.dataQuality === 'estimated' ? 'All stats estimated' : p.estimatedFields?.length ? `Estimated: ${p.estimatedFields.map((f) => FIELD_NAME[f] ?? f).join(', ')}` : '';
   const Wrapper = onPick ? 'button' : 'div';
   const pool = poolSummary(p);
   const champs = [...p.champions].sort((a, b) => b.games - a.games);
   const interactive = onPick && !disabled;
+  const tags = [...p.playstyle].sort((a, b) => Number(NEGATIVE_TRAITS.includes(a)) - Number(NEGATIVE_TRAITS.includes(b)));
+  if (variant === 'mini')
+    // narrow card: fits five across (one per role)
+    return (
+      <div className="flex h-full min-w-0 flex-col gap-1.5 rounded-xl border border-white/[0.07] bg-ink-900/80 p-2.5">
+        <div className="flex items-center gap-2">
+          <Avatar handle={p.handle} photoUrl={p.photoUrl} role={p.role} size={34} />
+          <div className="min-w-0 flex-1">
+            <div className="truncate font-display text-lg font-bold leading-none tracking-wide text-white">{p.handle}</div>
+            <div className="mt-0.5 truncate text-[10px] text-slate-500">
+              {p.teamShort} <span className="text-gold-400">{p.year}</span> · {p.region}
+            </div>
+          </div>
+          <StrengthBadge value={r.strength} size="sm" />
+        </div>
+        <div className="flex h-[38px] flex-wrap content-start gap-1 overflow-hidden">
+          {tags.length ? tags.map((t) => <TagChip key={t} tag={t} />) : <span className="text-[10px] text-slate-600">no standout playstyle</span>}
+        </div>
+        <div className="space-y-0.5">
+          <StatBar label="Lane" value={r.laning} color="#a3e635" />
+          <StatBar label="Impact" value={r.impact} color="#fb7185" />
+          <StatBar label="Results" value={r.results} color="#38bdf8" />
+        </div>
+        <div className="flex items-center gap-1">
+          {champs.slice(0, 5).map((c, i) => (
+            <ChampIcon key={c.name} name={c.name} size={20} ring={TIER_STYLE[tierOf(c.games, i)].color + '99'} title={`${c.name}: ${c.games} games, ${Math.round(c.winRate * 100)}% WR`} />
+          ))}
+        </div>
+        <div className="mt-auto flex items-center justify-between gap-1 border-t border-white/[0.05] pt-1 text-[10px] text-slate-500">
+          <span className="truncate">{p.season?.games ?? p.stats.gamesPlayed} games</span>
+          <ExperiencePips value={r.experience ?? 50} />
+        </div>
+      </div>
+    );
   if (compact)
     return (
       <div className="card-inset flex items-center gap-2 p-2">
@@ -80,7 +115,7 @@ export function PlayerCard({ p, onPick, disabled, compact, variant = 'full' }: {
       </div>
 
       <div className="flex h-[18px] flex-wrap gap-1 overflow-hidden">
-        {p.playstyle.length ? p.playstyle.map((t) => <TagChip key={t} tag={t} />) : <span className="text-[10px] text-slate-600">no standout playstyle</span>}
+        {p.playstyle.length ? [...p.playstyle].sort((a, b) => Number(NEGATIVE_TRAITS.includes(a)) - Number(NEGATIVE_TRAITS.includes(b))).map((t) => <TagChip key={t} tag={t} />) : <span className="text-[10px] text-slate-600">no standout playstyle</span>}
       </div>
 
       <div className="space-y-1">

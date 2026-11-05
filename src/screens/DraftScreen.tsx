@@ -136,10 +136,8 @@ export function DraftScreen({ cfg, onDone }: { cfg: RunConfig; onDone: (picks: D
             </span>
           </button>
           {showTeam && (
-            <div className="grid gap-3 border-t border-white/[0.06] p-3 sm:grid-cols-2 2xl:grid-cols-3">
-              {ROLES.map((r) => picks.find((x) => x.player.role === r)?.player).filter(Boolean).map((p) => (
-                <PlayerCard key={p!.role} p={p!} />
-              ))}
+            <div className="scrollbar-thin overflow-x-auto border-t border-white/[0.06] p-1.5">
+              <TeamRow picks={picks} />
             </div>
           )}
         </div>
@@ -150,16 +148,13 @@ export function DraftScreen({ cfg, onDone }: { cfg: RunConfig; onDone: (picks: D
   if (round >= 5) {
     return (
       <div className="mx-auto grid max-w-6xl gap-6 px-4 py-8 lg:grid-cols-[1fr_380px]">
-        <div className="space-y-4">
+        <div className="space-y-4 lg:col-span-2">
           <SectionTitle kicker="Roster locked">Your five for Worlds</SectionTitle>
-          <div className="grid gap-3 sm:grid-cols-2">
-            {ROLES.map((r) => {
-              const p = picks.find((x) => x.player.role === r)!.player;
-              return <PlayerCard key={r} p={p} />;
-            })}
+          <div className="scrollbar-thin -mx-4 overflow-x-auto px-4 pb-1">
+            <TeamRow picks={picks} labels />
           </div>
         </div>
-        <div className="space-y-3 lg:sticky lg:top-20 lg:self-start">
+        <div className="space-y-3">
           <div className="card space-y-2 p-4">
             <label className="label">Team name</label>
             <input value={name} onChange={(e) => setName(e.target.value)} maxLength={24} placeholder="Dream Team" className="input text-lg font-semibold" />
@@ -167,8 +162,8 @@ export function DraftScreen({ cfg, onDone }: { cfg: RunConfig; onDone: (picks: D
               Enter Worlds →
             </button>
           </div>
-          <TeamPanel players={picks.map((p) => p.player)} rating={rating} />
         </div>
+        <TeamPanel players={picks.map((p) => p.player)} rating={rating} />
       </div>
     );
   }
@@ -273,6 +268,32 @@ export function DraftScreen({ cfg, onDone }: { cfg: RunConfig; onDone: (picks: D
         <TeamPanel players={picks.map((p) => p.player)} rating={rating} />
       </div>
       {phase !== 'idle' && pop && <ReloadModal key={deal} title={pop.title} sub={pop.sub} closing={phase === 'pop'} />}
+    </div>
+  );
+}
+
+/** Your picks in one row, one column per role (same grid as the role strip above it). */
+function TeamRow({ picks, labels = false }: { picks: DraftPick[]; labels?: boolean }) {
+  return (
+    <div className="grid min-w-[860px] grid-cols-5 gap-1.5">
+      {ROLES.map((r) => {
+        const p = picks.find((x) => x.player.role === r)?.player;
+        return (
+          <div key={r} className="flex min-w-0 flex-col gap-1">
+            {labels && (
+              <div className="flex items-center gap-1.5 px-1">
+                <RoleIcon role={r} size={13} />
+                <span className="label">{ROLE_NAME[r]}</span>
+              </div>
+            )}
+            {p ? (
+              <PlayerCard variant="mini" p={p} />
+            ) : (
+              <div className="flex min-h-[188px] flex-1 items-center justify-center rounded-xl border border-dashed border-white/10 text-xs text-slate-600">{ROLE_NAME[r]} open</div>
+            )}
+          </div>
+        );
+      })}
     </div>
   );
 }

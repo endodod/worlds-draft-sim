@@ -58,6 +58,17 @@ export function metaStrength(name: string, year: number): number {
   return 0.55 + 0.45 * Math.min(1, Math.sqrt(pres / 0.5));
 }
 
+/** Every champion that was ever in a role's meta (any year): the "default" pool every pro can fall back on. */
+const ALL_ROLE_META = new Map<Role, string[]>();
+export function roleMetaAll(role: Role): string[] {
+  if (!ALL_ROLE_META.has(role)) {
+    const count = new Map<string, number>();
+    for (const y of Object.values(META)) (y.roles?.[role] ?? []).forEach((c, i) => count.set(c, (count.get(c) ?? 0) + (12 - i)));
+    ALL_ROLE_META.set(role, [...count.entries()].sort((a, b) => b[1] - a[1]).map((e) => e[0]));
+  }
+  return ALL_ROLE_META.get(role)!;
+}
+
 export function roleMeta(year: number, role: Role): string[] {
   const m = META[String(year)] ?? META[String(Math.max(...Object.keys(META).map(Number)))];
   return m?.roles?.[role] ?? [];

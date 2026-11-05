@@ -1,8 +1,8 @@
-import { DRAFT, PLAN, POOL } from '../config/balance';
+import { DRAFT, PLAN, POOL, TRAITS } from '../config/balance';
 import type { ChampionAttrs, RatedPlayer, Role } from './types';
 import { ROLES } from './types';
 import type { Rng } from './rng';
-import { ATTR_KEYS, championAttrs, comboBonus, metaStrength, roleMeta } from './champions';
+import { ATTR_KEYS, championAttrs, comboBonus, metaStrength, roleMeta, roleMetaAll } from './champions';
 
 export interface DraftTeam {
   name: string;
@@ -18,7 +18,8 @@ export interface SeriesDraftState {
 }
 
 /** Champion-pool tier for one player and one champion, from that year's games. */
-export type PoolTier = 'signature' | 'comfort' | 'pocket' | 'off';
+/** `off`: in that year's role meta but not played by the player · `default`: generic role fallback (hidden on player cards) */
+export type PoolTier = 'signature' | 'comfort' | 'pocket' | 'off' | 'default';
 
 /** The user's draft plan for a game: from greedy (best champions, often read and banned) to safe (deep pool picks). */
 export type DraftPlan = 'comfort' | 'balanced' | 'deep';
@@ -90,13 +91,13 @@ export function playerOptions(p: RatedPlayer, metaYear: number): Option[] {
   const pool = [...p.champions].sort((a, b) => b.games - a.games);
   pool.forEach((c, i) => out.set(c.name, { champion: c.name, mastery: mastery(c.games, c.winRate), comfort: true, tier: tierOf(c.games, i), games: c.games }));
   for (const c of roleMeta(metaYear, p.role)) if (!out.has(c)) out.set(c, { champion: c, mastery: DRAFT.fallbackMastery, comfort: false, tier: 'off', games: 0 });
-  // always have something to pick
-  for (const c of roleMeta(2024, p.role)) if (!out.has(c)) out.set(c, { champion: c, mastery: DRAFT.fallbackMastery * 0.8, comfort: false, tier: 'off', games: 0 });
+  // default pool: every champion ever played in the role, at much lower mastery (never shown on player cards)
+  for (const c of roleMetaAll(p.role)) if (!out.has(c)) out.set(c, { champion: c, mastery: DRAFT.defaultMastery, comfort: false, tier: 'default', games: 0 });
   return [...out.values()];
 }
 
 /** Count of champions per tier in a player's pool. */
-export function poolSummary(p: RatedPlayer): Record<Exclude<PoolTier, 'off'>, number> {
+export function poolSummary(p: RatedPlayer): Record<Exclude<PoolTier, 'off' | 'default'>, number> {
   const pool = [...p.champions].sort((a, b) => b.games - a.games);
   const out = { signature: 0, comfort: 0, pocket: 0 };
   pool.forEach((c, i) => out[tierOf(c.games, i) as keyof typeof out]++);
@@ -243,6 +244,8 @@ export function runDraft(teams: [DraftTeam, DraftTeam], state: SeriesDraftState,
           if (unavailable.has(o.champion) || hidden(opp, o.champion) || planned[side]?.includes(o.champion)) continue;
           let v = o.mastery * metaStrength(o.champion, teams[opp].year) * (o.comfort ? 1 : 0.7);
           if (state.winningChamps.has(o.champion)) v *= 1 + DRAFT.banAdaptBonus;
+          // one-tricks get their signature champion banned out
+          if (o.tier === 'signature' && teams[opp].players[i].playstyle.includes('one_trick')) v *= 1 + TRAITS.oneTrickBan;
           v *= 1 + 0.08 * rng.normal();
           if (!target || v > target.v) target = { champ: o.champion, v };
         }

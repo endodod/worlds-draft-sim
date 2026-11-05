@@ -1,4 +1,4 @@
-import { DUO, POOL, SYNERGY } from '../config/balance';
+import { DUO, POOL, SYNERGY, TRAITS } from '../config/balance';
 import { teamDuos } from './duo';
 import { tierOf } from './draft';
 import type { RatedPlayer, Team } from './types';
@@ -131,6 +131,26 @@ export function computeSynergy(players: RatedPlayer[], index: TeammateIndex, com
     const v = r1(d.style * DUO.styleToRating);
     if (Math.abs(v) < 0.3) continue;
     mods.push({ id: `duo-${d.key}`, label: `${d.label}: ${d.a.handle} + ${d.b.handle}`, value: v, reason: d.reasons.filter((r) => !/games together|teammates in/.test(r)).join('; ') });
+  }
+  // --- liabilities: negative traits cost the team
+  const TRAIT_LABEL: Record<string, string> = { mistake_prone: 'mistake-prone', weak_laner: 'weak laner', one_trick: 'one-trick', choker: 'chokes on the big stage', passive: 'passive', poor_vision: 'poor vision' };
+  const TRAIT_WHY: Record<string, string> = {
+    mistake_prone: 'dies a lot and throws leads',
+    weak_laner: 'falls behind in lane',
+    one_trick: 'gets target-banned',
+    choker: 'cracks more often under elimination pressure',
+    passive: 'shows up to few fights',
+    poor_vision: 'leaves the map dark: more picks and ganks against the team',
+  };
+  for (const p of players) {
+    const bad = p.playstyle.filter((t) => t in TRAITS.rating);
+    if (!bad.length) continue;
+    mods.push({
+      id: `liability-${p.playerId}-${p.role}`,
+      label: `Liability: ${p.handle}`,
+      value: r1(bad.reduce((a, t) => a + TRAITS.rating[t], 0)),
+      reason: bad.map((t) => `${TRAIT_LABEL[t]} (${TRAIT_WHY[t]})`).join('; '),
+    });
   }
   // --- champion pools
   if (players.length) {

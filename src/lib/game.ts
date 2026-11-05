@@ -1,4 +1,4 @@
-import { DRAFT, DUO, FATIGUE, POOL, SIM, TEMPO } from '../config/balance';
+import { DRAFT, DUO, FATIGUE, POOL, SIM, TEMPO, TRAITS } from '../config/balance';
 import type { DraftResult, CompScore } from './draft';
 import { championAttrs, championTags } from './champions';
 import { duoValue, teamDuos, type DuoKey, type DuoScore } from './duo';
@@ -164,6 +164,7 @@ export class GameSim {
       const champ = pk ? Math.max(POOL.deltaMin, Math.min(POOL.deltaMax, (pk.mastery - POOL.masteryPivot) * POOL.masteryScale)) : 0;
       if (pk && pk.tier === 'signature') notes.push(`signature ${pk.champion} (${pk.games} games this year)`);
       if (pk && pk.tier === 'off') notes.push(`${pk.champion} is not in ${p.handle}'s pool`);
+      if (pk && pk.tier === 'default') notes.push(`${pk.champion} is only a default-pool pick for ${p.handle} (big penalty)`);
       const inexp = 1 - (p.rating.experience ?? 50) / 100;
       let fatigue = 0;
       if (ctx && ctx.game >= 4) {
@@ -175,7 +176,8 @@ export class GameSim {
       if (ctx && ctx.pressure[side]) {
         const clutch = p.playstyle.includes('clutch');
         const decider = ctx.pressure[0] && ctx.pressure[1];
-        const crack = FATIGUE.crackBase * inexp ** 1.5 * (decider ? FATIGUE.crackDecider : 1) * (clutch ? FATIGUE.clutchFactor : 1);
+        const choker = p.playstyle.includes('choker');
+        const crack = Math.min(0.8, FATIGUE.crackBase * Math.max(inexp, choker ? 0.5 : 0) ** 1.5 * (decider ? FATIGUE.crackDecider : 1) * (clutch ? FATIGUE.clutchFactor : 1) * (choker ? TRAITS.chokerCrack : 1));
         if (this.rng.chance(crack)) {
           cracked = true;
           pressure = -FATIGUE.crackPenalty;
@@ -192,6 +194,14 @@ export class GameSim {
       const delta = Math.round((champ + fatigue + pressure) * 10) / 10;
       return { delta, champ: Math.round(champ * 10) / 10, fatigue: Math.round(fatigue * 10) / 10, pressure, cracked, notes };
     });
+  }
+
+  /** number of players on a side with a trait */
+  traitCount(side: Side, trait: string, idx?: number[]): number {
+    return (idx ?? [0, 1, 2, 3, 4]).filter((i) => this.input.teams[side].players[i].playstyle.includes(trait as never)).length;
+  }
+  traitDiff(trait: string, idx?: number[]): number {
+    return this.traitCount(0, trait, idx) - this.traitCount(1, trait, idx);
   }
 
   duo(side: Side, key: DuoKey): number {
@@ -308,6 +318,7 @@ export class GameSim {
     x += SIM.playerDiffToLogit * SIM.jungleLanePresence * this.statDiff([1], (p) => 0.5 * p.rating.aggression + 0.5 * p.rating.strength);
     x += SIM.compToLogit * (this.comp(0).early - this.comp(1).early) / 3;
     x += 0.4 * SIM.ratingToLogit * (this.power[0] - this.power[1]);
+    x -= TRAITS.weakLaneLogit * this.traitDiff('weak_laner', lane.roles);
     if (lane.key === 'bot') x += DUO.toLogit * this.duoDiff('BOT-SUP');
     if (lane.key === 'top') x += 0.5 * DUO.toLogit * this.duoDiff('JNG-TOP');
     if (lane.key === 'mid') x += 0.5 * DUO.toLogit * this.duoDiff('JNG-MID');
@@ -414,6 +425,9 @@ export class GameSim {
     const link = lane.key === 'top' ? this.duo(side, 'JNG-TOP') : lane.key === 'mid' ? this.duo(side, 'JNG-MID') : (this.duo(side, 'JNG-SUP') + this.duo(side, 'BOT-SUP')) / 2;
     const defend = lane.key === 'bot' ? this.duo(opp, 'BOT-SUP') * 0.5 : 0;
     x += DUO.toLogit * (link - defend);
+    if (this.p(side, 1).playstyle.includes('passive')) x -= TRAITS.passiveLogit * 2;
+    x += TRAITS.poorVisionLogit * this.traitCount(opp, 'poor_vision');
+    x += 0.5 * TRAITS.weakLaneLogit * this.traitCount(opp, 'weak_laner', lane.roles);
     return sigmoid(x);
   }
 
@@ -639,6 +653,7 @@ export class GameSim {
     x += SIM.compToLogit * this.engageDiff() + SIM.compToLogit * this.phaseComp();
     // can the support keep the carries alive against the enemy's divers?
     x += SIM.peelToLogit * (Math.max(-3, Math.min(3, this.peelMargin(0))) - Math.max(-3, Math.min(3, this.peelMargin(1))));
+    x -= TRAITS.passiveLogit * this.traitDiff('passive');
     return sigmoid(x);
   }
 
@@ -683,6 +698,21 @@ export class GameSim {
     return this.rng.pick(['picks the angle', 'turns the fight']);
   }
 
+  /** Mistake-prone players occasionally throw for free: a death and a swing in tempo. */
+  mistakeEvent(): boolean {
+    const cands: Actor[] = [];
+    for (const side of [0, 1] as Side[]) this.input.teams[side].players.forEach((p, i) => p.playstyle.includes('mistake_prone') && cands.push({ side, idx: i }));
+    const a = cands.find(() => this.rng.chance(TRAITS.throwChance));
+    if (!a) return false;
+    const opp = (1 - a.side) as Side;
+    const killer = this.rng.pick([0, 1, 2, 3]);
+    this.kill(opp, killer, a.idx, [killer]);
+    this.setTempo(opp, TEMPO.gank, 'throw');
+    const what = this.rng.pick(['overextends without vision', 'chases too deep and gets collapsed on', 'gets caught walking up alone', 'mistimes a flash and dies']);
+    this.log({ kind: 'misplay', location: this.rng.pick(['jungle0', 'jungle1', 'topRiver', 'botRiver', 'midRiver']), actors: [a, { side: opp, idx: killer }], side: opp, text: `Mistake-prone ${this.name(a.side, a.idx)} ${what}` });
+    return true;
+  }
+
   /** A player who cracked under pressure throws once in the mid game. */
   crackEvent(): boolean {
     const a = this.pendingCracks.shift();
@@ -697,7 +727,7 @@ export class GameSim {
   }
 
   pick() {
-    const side: Side = this.rng.chance(sigmoid(this.baseLogit() + SIM.playerDiffToLogit * this.statDiff([1, 4], (p) => p.rating.vision))) ? 0 : 1;
+    const side: Side = this.rng.chance(sigmoid(this.baseLogit() + SIM.playerDiffToLogit * this.statDiff([1, 4], (p) => p.rating.vision) - TRAITS.poorVisionLogit * this.traitDiff('poor_vision'))) ? 0 : 1;
     const opp = (1 - side) as Side;
     const victim = this.rng.pick([0, 2, 3]);
     const by = this.rng.pick([1, 4, 2]);
@@ -794,6 +824,9 @@ export class GameSim {
       } else {
         const r = this.rng.next();
         if (this.pendingCracks.length && this.rng.chance(0.35)) this.crackEvent();
+        else if (this.mistakeEvent()) {
+          /* unforced throw */
+        }
         else if (r < 0.45) this.teamfight();
         else if (r < 0.7) this.pick();
         else if (r < 0.85 && this.splitPush()) {

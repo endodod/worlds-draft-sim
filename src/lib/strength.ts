@@ -70,10 +70,22 @@ export function rateAll(teams: Team[]): Map<string, RatedPlayer> {
     return Math.max(-3, Math.min(3, (s - mean) / sd));
   };
   const exp = experienceIndex(teams);
+  // Worlds-only performance gets its own weight on top of the full year: the biggest stage matters most
+  const atWorlds = (p: PlayerSeason): PlayerSeason => (p.worlds ? { ...p, stats: p.worlds.stats } : p);
+  const tableW = buildZTable(all.map(atWorlds));
   const out = new Map<string, RatedPlayer>();
   for (const t of teams)
-    for (const p of t.players)
-      out.set(seasonKey(p), { ...p, rating: { ...computeStrength(p, table, t.worldsPlacement, placementZ), experience: exp(p) }, teamName: t.name, teamShort: t.shortName });
+    for (const p of t.players) {
+      const year = computeStrength(p, table, t.worldsPlacement, placementZ);
+      let rating = year;
+      if (p.worlds) {
+        const w = STRENGTH.worldsWeight * (p.worlds.stats.gamesPlayed / (p.worlds.stats.gamesPlayed + STRENGTH.shrinkK));
+        const wr = computeStrength(atWorlds(p), tableW, t.worldsPlacement, placementZ);
+        const mix = (a: number, b: number) => Math.round((1 - w) * a + w * b);
+        rating = { ...year, laning: mix(year.laning, wr.laning), impact: mix(year.impact, wr.impact), results: mix(year.results, wr.results), strength: mix(year.strength, wr.strength), aggression: mix(year.aggression, wr.aggression), vision: mix(year.vision, wr.vision), teamfight: mix(year.teamfight, wr.teamfight), raw: Math.round(((1 - w) * year.raw + w * wr.raw) * 100) / 100 };
+      }
+      out.set(seasonKey(p), { ...p, rating: { ...rating, experience: exp(p) }, teamName: t.name, teamShort: t.shortName });
+    }
   return out;
 }
 

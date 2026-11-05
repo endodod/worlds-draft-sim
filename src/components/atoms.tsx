@@ -91,8 +91,14 @@ const TAG_STYLE: Record<Playstyle, string> = {
   engager: 'bg-amber-500/15 text-amber-300',
   objective_control: 'bg-purple-500/15 text-purple-300',
   clutch: 'bg-yellow-400/15 text-yellow-200 ring-1 ring-yellow-400/30',
+  mistake_prone: 'bg-red-950/60 text-red-300 ring-1 ring-red-500/40',
+  weak_laner: 'bg-red-950/60 text-red-300 ring-1 ring-red-500/40',
+  one_trick: 'bg-red-950/60 text-red-300 ring-1 ring-red-500/40',
+  choker: 'bg-red-950/60 text-red-300 ring-1 ring-red-500/40',
+  passive: 'bg-red-950/60 text-red-300 ring-1 ring-red-500/40',
+  poor_vision: 'bg-red-950/60 text-red-300 ring-1 ring-red-500/40',
 };
-const TAG_LABEL: Partial<Record<Playstyle, string>> = { shotcaller: 'IGL', objective_control: 'objectives', vision_control: 'vision', lane_bully: 'lane bully' };
+const TAG_LABEL: Partial<Record<Playstyle, string>> = { shotcaller: 'IGL', objective_control: 'objectives', vision_control: 'vision', lane_bully: 'lane bully', mistake_prone: '▼ mistakes', weak_laner: '▼ weak lane', one_trick: '▼ one-trick', choker: '▼ choker', passive: '▼ passive', poor_vision: '▼ low vision' };
 export const TAG_HELP: Record<Playstyle, string> = {
   shotcaller: 'Makes the calls (curated or the most likely caller on the roster)',
   carry: 'High damage share',
@@ -108,6 +114,12 @@ export const TAG_HELP: Record<Playstyle, string> = {
   engager: 'Plays mostly hard-engage champions',
   objective_control: "Jungler whose team takes a clearly larger share of drakes, heralds and barons",
   clutch: 'Clearly better at Worlds than over the rest of the year',
+  mistake_prone: 'Liability: dies a lot (very low KDA for the role). Team rating -1.5, throws in the mid game',
+  weak_laner: 'Liability: falls behind in lane (CS/gold). Team rating -1, loses more lane trades',
+  one_trick: 'Liability: tiny champion pool built around one champion. Team rating -1, gets target-banned',
+  choker: 'Liability: clearly worse at Worlds than over the year. Team rating -1, cracks more often under pressure',
+  passive: 'Liability: low kill participation. Team rating -1, weaker teamfights and ganks',
+  poor_vision: 'Liability: low vision score for a jungler/support. Team rating -1, more picks and ganks against the team',
 };
 export function TagChip({ tag }: { tag: Playstyle }) {
   return (
@@ -122,6 +134,7 @@ export const TIER_STYLE: Record<PoolTier, { label: string; color: string }> = {
   comfort: { label: 'comfort', color: '#3ee6d6' },
   pocket: { label: 'pocket', color: '#a78bfa' },
   off: { label: 'off-pool', color: '#fb923c' },
+  default: { label: 'default pool', color: '#ef4444' },
 };
 
 export function StatBar({ label, value, color = '#c8aa6e' }: { label: string; value: number; color?: string }) {

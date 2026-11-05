@@ -171,3 +171,27 @@ describe('draft rerolls', async () => {
     expect(offersForRound(cfg, 0, [], first.map((t) => t.id), 1).map((t) => t.id)).toEqual(again.map((t) => t.id));
   });
 });
+
+describe('negative traits and default pool', async () => {
+  const { computeSynergy, buildTeammateIndex } = await import('../src/lib/synergy');
+  const { playerOptions } = await import('../src/lib/draft');
+  it('liabilities lower the team rating', () => {
+    const clean = computeSynergy(lineup('a'), buildTeammateIndex([]));
+    const bad = computeSynergy(lineup('a', 60, { MID: { playstyle: ['mistake_prone', 'passive'] } }), buildTeammateIndex([]));
+    const sum = (m: typeof clean) => m.reduce((a, x) => a + x.value, 0);
+    expect(sum(bad)).toBeLessThan(sum(clean) - 2);
+    expect(bad.some((m) => m.label.startsWith('Liability'))).toBe(true);
+  });
+  it('a weak laner loses more lane trades', () => {
+    const input = sims({ TOP: { playstyle: ['weak_laner'] as never } });
+    const s = new GameSim({ ...input, year: 2025 }, makeRng('wl'));
+    expect(s.laneProb({ key: 'top', roles: [0] })).toBeLessThan(0.45);
+  });
+  it('everyone has a default pool far below their real pool', () => {
+    const opts = playerOptions(withPools('a')[2], 2024);
+    const def = opts.filter((o) => o.tier === 'default');
+    expect(def.length).toBeGreaterThan(10);
+    const own = opts.filter((o) => o.comfort);
+    expect(Math.max(...def.map((o) => o.mastery))).toBeLessThan(Math.min(...own.map((o) => o.mastery)) * 0.6);
+  });
+});

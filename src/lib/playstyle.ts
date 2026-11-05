@@ -66,6 +66,22 @@ export function heuristicTags(p: PlayerSeason, table: ReturnType<typeof buildZTa
     const kdaRatio = w.kda / Math.max(0.5, p.season.kda);
     if (kdaRatio >= PLAYSTYLE.clutchKdaRatio && w.winRate >= p.season.winRate - 0.02) tags.add('clutch');
   }
+  // ---- negative traits (need a real sample too)
+  if (games >= PLAYSTYLE.poolTagMinGames) {
+    if (zz('kda') <= PLAYSTYLE.mistakeKdaZ) tags.add('mistake_prone');
+    if (p.role !== 'SUP' && p.role !== 'JNG' && lane <= PLAYSTYLE.weakLanerZ) tags.add('weak_laner');
+    const losing = zz('winRate') < PLAYSTYLE.liabilityMaxWinRateZ;
+    if (losing && p.role !== 'TOP' && zz('kp') <= PLAYSTYLE.passiveKpZ) tags.add('passive');
+    if (losing && (p.role === 'SUP' || p.role === 'JNG') && zz('visionPerMin') <= PLAYSTYLE.poorVisionZ) tags.add('poor_vision');
+    const total = p.champions.reduce((s, c) => s + c.games, 0);
+    const comfort = p.champions.filter((c) => c.games >= 3).length;
+    const top = Math.max(0, ...p.champions.map((c) => c.games));
+    if (comfort < PLAYSTYLE.oneTrickMaxComfort && total > 0 && top / total >= PLAYSTYLE.oneTrickShare) tags.add('one_trick');
+  }
+  if (w && p.season && w.gamesPlayed >= PLAYSTYLE.clutchMinWorldsGames) {
+    const kdaRatio = w.kda / Math.max(0.5, p.season.kda);
+    if (kdaRatio <= PLAYSTYLE.chokerKdaRatio && w.winRate <= p.season.winRate - 0.12) tags.add('choker');
+  }
   return [...tags];
 }
 

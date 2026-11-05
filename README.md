@@ -14,7 +14,7 @@ npm run build      # type-check + production build into dist/
 ## How a run works
 
 1. **Start**: pick a seed (or leave it random), a format (modern Swiss or classic groups), fearless on/off and the range of draftable seasons.
-2. **Draft (5 rounds)**: each round shows 3 random Worlds rosters (team + year, never repeated in a run) on a role-aligned board: every role starts at the same height in all three rosters, and rows for roles you already filled collapse to a slim line. "Your team" expands to show your picks as full player cards. You get **3 rerolls per run** to swap the three offered rosters for new ones (rerolled-away rosters never come back and never appear as opponents); after a pick or reroll the page scrolls to the top, the old board fades out behind a short loading popup ("Faker locked in · loading round 2 of 5…" / "Reloading rosters") and the new rosters deal in card by card. When a roster used two players in one role (a sub), the cell shows a switch between them with a "2 players" indicator. Pick exactly one player for a role you haven't filled. Players in filled roles are greyed out. A roster with no eligible player is rerolled. The team rating, every synergy modifier and a radar chart (early game, teamfight, macro, pool depth, shotcalling, experience) update after each pick.
+2. **Draft (5 rounds)**: each round shows 3 random Worlds rosters (team + year, never repeated in a run) on a role-aligned board: every role starts at the same height in all three rosters, and rows for roles you already filled collapse to a slim line. "Your team" expands to show your picks in one row of narrow cards, one under each role (the locked-roster overview uses the same row). You get **3 rerolls per run** to swap the three offered rosters for new ones (rerolled-away rosters never come back and never appear as opponents); after a pick or reroll the page scrolls to the top, the old board fades out behind a short loading popup ("Faker locked in · loading round 2 of 5…" / "Reloading rosters") and the new rosters deal in card by card. When a roster used two players in one role (a sub), the cell shows a switch between them with a "2 players" indicator. Pick exactly one player for a role you haven't filled. Players in filled roles are greyed out. A roster with no eligible player is rerolled. The team rating, every synergy modifier and a radar chart (early game, teamfight, macro, pool depth, shotcalling, experience) update after each pick.
 3. **Tournament**: 15 real historical rosters at their real strength, never ones you were offered during the draft. Swiss rounds are Bo1, and matches where advancement or elimination is on the line are Bo3. Quarterfinals, semifinals and the final are Bo5. Watch your series game by game or skip to the end of a game or series. Before each of your games you choose a **draft**: Aggressive, Medium or Safe (below), then see the pick/ban and watch the game live at 1×, 4× or 12× with a key-events or full log.
 4. **Results**: placement, MVP, series history and a "share seed" link.
 
@@ -99,18 +99,20 @@ Every stat is turned into a z-score against **the same role in the same year** (
 ```
 laning  = 0.45·z(gd15) + 0.30·z(csd15) + 0.25·z(xpd15)
 impact  = Σ w_role,k · z(k)    for k ∈ {kda, kp, dpm, damageShare, vision/min, firstBlood}
-results = 0.6·z(winRate) + 0.4·z(placementScore)   (Winner 6 … Play-In 0)
+results = 0.45·z(winRate) + 0.55·z(placementScore)   (Winner 6 … Play-In 0)
 raw     = wL·laning + wI·impact + wR·results
 strength = clamp(50 + 22 · raw · games/(games + 5), 0, 100)
 ```
 
 | Role | laning | impact | results | impact leans on |
 |---|---|---|---|---|
-| TOP | .45 | .30 | .25 | DPM, damage share, KDA |
-| JNG | .20 | .50 | .30 | KP, vision, first blood |
-| MID | .35 | .40 | .25 | balanced |
-| BOT | .30 | .45 | .25 | DPM, damage share |
-| SUP | .15 | .55 | .30 | KP, vision, first blood |
+| TOP | .38 | .27 | .35 | DPM, damage share, KDA |
+| JNG | .17 | .43 | .40 | KP, vision, first blood |
+| MID | .30 | .35 | .35 | balanced |
+| BOT | .26 | .39 | .35 | DPM, damage share |
+| SUP | .13 | .47 | .40 | KP, vision, first blood |
+
+**Worlds weight**: the full-year rating is blended with the same formula run on Worlds-only stats (z-scored against that year's Worlds field), weight `0.4 · worldsGames/(worldsGames+5)`, so the biggest stage counts most. Results now weigh 35–40% per role, with Worlds placement at 55% of results. Average team rating of the real rosters by placement: Winner 86.8, Finalist 79.6, Semifinals 77.1, Quarterfinals 69.1, Groups 56.6, Play-In 44.6.
 
 All inputs are the full-year, league-adjusted stats, so `games` is usually 40–160 and the `games/(games+5)` shrink only bites for Worlds-only seasons. The card shows laning, impact and results on a 0–100 scale. Derived sim attributes (aggression, vision, teamfight) come from the same z-scores.
 
@@ -125,6 +127,19 @@ Every z-score is multiplied by `games/(games+8)` before the thresholds, so a ful
 - `engager` / `peeler`: at least half of a support's (engager: also jungler's) games that year on hard-engage (engage ≥ 4) or peel (peel ≥ 4) champions, with at least 15 games.
 - `objective_control`: jungler whose team took a clearly larger share of drakes, heralds/grubs and barons in their games (z ≥ 0.9 among that year's junglers).
 - `clutch`: Worlds KDA at least 1.2× the full-year KDA over 8+ Worlds games, without a worse win rate.
+
+**Negative traits** (liabilities, shown as red ▼ chips, each costs team rating and changes the simulation):
+
+| Trait | Rule (15+ games) | Rating | In game |
+|---|---|---|---|
+| `mistake_prone` | KDA z ≤ −1.1 | −1.5 | 5% chance per mid/late tick of an unforced throw (death + tempo for the enemy) |
+| `weak_laner` | top/mid/bot lane z ≤ −0.9 | −1 | −0.35 logit in their lane, easier to gank |
+| `one_trick` | < 4 comfort champions and one champion ≥ 30% of games | −1 | signature champion gets +60% ban priority |
+| `choker` | Worlds KDA ≤ 0.5× the year's and win rate 12+ points lower | −1 | 2.2× pressure-crack chance |
+| `passive` | mid/jng/bot/sup KP z ≤ −0.9, team not winning | −1 | −0.12 teamfight logit each, weaker ganks |
+| `poor_vision` | jng/sup vision z ≤ −0.9, team not winning | −1 | +0.25 logit for enemy picks and ganks each |
+
+`passive` and `poor_vision` are not given to players on clearly winning teams (win-rate z ≥ 0.3): stomping teams dilute kill participation and play to their own style.
 
 `src/data/overrides.json` adds hand-curated famous playstyles and **shotcallers** by handle (all years or specific years). A roster with no curated shotcaller gets exactly one heuristic shotcaller (the support or jungler with the best KP+vision), because every real team had someone making the calls.
 
@@ -156,7 +171,7 @@ Every z-score is multiplied by `games/(games+8)` before the thresholds, so a ful
 - Sequence per game: 3 bans each, picks B-R-R-B-B-R, 2 bans each, picks R-B-B-R.
 - `value = mastery × metaStrength(year) × (1 + 0.25·compFit + combo)`.
   - `mastery = (0.35 + 0.65·g/(g+3)) · (0.7 + 0.6·winRate')` from the player's games on that champion **that year** (all events), with the win rate shrunk toward 50% for small samples. Champions outside the pool come from the year's role meta at mastery 0.3.
-  - Pool tiers per player: **signature** (top 3 by games with ≥ 6 games), **comfort** (≥ 3 games), **pocket** (1–2), **off-pool**. Tiers show as coloured rings on every champion icon.
+  - Pool tiers per player: **signature** (top 3 by games with ≥ 6 games), **comfort** (≥ 3 games), **pocket** (1–2), **off-pool** (in that year's role meta, mastery 0.3) and a hidden **default pool** (every champion ever played in the role, mastery 0.16, about −16 rating in game). The default pool never shows on player cards, but it is what players fall back on when fearless and bans eat their real pool. Tiers show as coloured rings on every champion icon.
   - `combo`: a small table of known pairings (Xayah–Rakan, Kalista–Thresh, Lucian–Nami, Yasuo–knock-ups, …) adds 4–12%.
   - `metaStrength = 0.55 + 0.45·√(presence/0.5)` from that year's pick presence.
   - `compFit` rewards covering missing engage, peel, waveclear or scaling.
@@ -168,7 +183,7 @@ Every z-score is multiplied by `games/(games+8)` before the thresholds, so a ful
 
 - **Team power** = team rating + per-game form swing (sd 6) + draft-value difference + 0.6 × the players' average form delta.
 - **Per-player form**: each player plays the game at `rating + delta` (laning, impact, teamfight, aggression, strength):
-  - champion: `clamp((mastery − 0.8) · 25, −12, +5)`: a signature pick is worth up to +5, an off-pool champion about −12.
+  - champion: `clamp((mastery − 0.8) · 25, −16, +5)`: a signature pick is worth up to +5, an off-pool champion about −12, a default-pool champion −16.
   - fatigue: in game 4 / game 5 of a series, `−5 / −8 × (1 − experience/100)`.
   - pressure: when a side faces elimination, each player cracks with `0.3 · (1 − experience/100)^1.5` (× 1.3 in a decider, × 0.35 for `clutch` players) for −14 and a mid-game throw; otherwise `clutch` players get +3 and veterans (experience ≥ 70) +2.
 - **Event odds**: each event's probability is `sigmoid` of team power difference, the relevant player stat differences, gold difference, buffs and composition (by game phase: early, mid, late), plus noise.
