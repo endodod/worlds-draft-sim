@@ -203,6 +203,66 @@ describe('enemy draft strategy', () => {
   });
 });
 
+describe('playstyle effects in the game', () => {
+  const top = { key: 'top' as const, roles: [0] };
+  const gankTop = (over: Parameters<typeof lineup>[2], t: number) => {
+    const g = new GameSim({ ...sims(over), year: 2024 }, makeRng('g'));
+    g.t = t;
+    return g.gankProb(0, top);
+  };
+  it('aggressive jungler + aggressive top: early top ganks succeed far more, fading later', () => {
+    const base = gankTop({}, 6 * 60);
+    const jngOnly = gankTop({ JNG: { playstyle: ['aggressive'] } }, 6 * 60);
+    const both = gankTop({ JNG: { playstyle: ['aggressive'] }, TOP: { playstyle: ['aggressive'] } }, 6 * 60);
+    expect(jngOnly).toBeGreaterThan(base + 0.03);
+    expect(both).toBeGreaterThan(jngOnly + 0.05);
+    expect(gankTop({ JNG: { playstyle: ['aggressive'] }, TOP: { playstyle: ['aggressive'] } }, 25 * 60)).toBeCloseTo(gankTop({}, 25 * 60), 5);
+  });
+  it('weakside laners are harder to gank', () => {
+    const g = new GameSim({ ...sims({}, { TOP: { playstyle: ['weakside'] } }), year: 2024 }, makeRng('g'));
+    const g0 = new GameSim({ ...sims(), year: 2024 }, makeRng('g'));
+    g.t = g0.t = 6 * 60;
+    expect(g.gankProb(0, top)).toBeLessThan(g0.gankProb(0, top));
+  });
+  it('lane bullies win early lanes, not late ones', () => {
+    const g = new GameSim({ ...sims({ TOP: { playstyle: ['lane_bully'] } }), year: 2024 }, makeRng('g'));
+    const g0 = new GameSim({ ...sims(), year: 2024 }, makeRng('g'));
+    g.t = g0.t = 5 * 60;
+    expect(g.laneProb(top)).toBeGreaterThan(g0.laneProb(top) + 0.05);
+    g.t = g0.t = 25 * 60;
+    expect(g.laneProb(top)).toBeCloseTo(g0.laneProb(top), 5);
+  });
+  it('an early-game team gets more early kills; a scaling team wins more late teamfights', () => {
+    let early = 0;
+    let base = 0;
+    const kills14 = (r: ReturnType<GameSim['run']>, side: 0 | 1) => {
+      const ev = [...r.events].reverse().find((e) => e.t <= 14 * 60)!;
+      return ev.score.kills[side] - ev.score.kills[1 - side];
+    };
+    const aggro = { JNG: { playstyle: ['aggressive'] }, TOP: { playstyle: ['aggressive', 'lane_bully'] }, MID: { playstyle: ['lane_bully'] } } as Parameters<typeof lineup>[2];
+    for (let i = 0; i < 400; i++) {
+      early += kills14(new GameSim({ ...sims(aggro), year: 2024 }, makeRng('e' + i)).run(), 0);
+      base += kills14(new GameSim({ ...sims(), year: 2024 }, makeRng('e' + i)).run(), 0);
+    }
+    expect(early / 400).toBeGreaterThan(base / 400 + 0.5);
+    // scaling team (two carries) vs that early-game team: behind in early fights, ahead late
+    const scaling = new GameSim({ ...sims({ MID: { playstyle: ['carry'] }, BOT: { playstyle: ['carry'] } }, aggro), year: 2024 }, makeRng('s'));
+    scaling.t = 15 * 60;
+    expect(scaling.styleFight(0) - scaling.styleFight(1)).toBeLessThan(0);
+    scaling.t = 32 * 60;
+    expect(scaling.styleFight(0) - scaling.styleFight(1)).toBeGreaterThan(0.3);
+  });
+  it('split pushers get caught by vision-control teams', () => {
+    let caught = 0;
+    for (let i = 0; i < 400; i++) {
+      const g = new GameSim({ ...sims({ TOP: { playstyle: ['splitpusher'] } }, { JNG: { playstyle: ['vision_control'] }, SUP: { playstyle: ['vision_control'] } }), year: 2024 }, makeRng('sp' + i));
+      g.t = 20 * 60;
+      if (g.splitPush() && g.events.at(-1)?.kind === 'pick') caught++;
+    }
+    expect(caught / 400).toBeGreaterThan(0.15);
+  });
+});
+
 describe('fatigue and pressure', () => {
   const ctxGame = (game: number, pressure: [boolean, boolean]) => ({ game, bestOf: 5, pressure });
   it('inexperienced players lose rating in game 5, veterans barely do', () => {

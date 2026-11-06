@@ -1,4 +1,5 @@
-import { DRAFT, DUO, FATIGUE, MATCHUP, POOL, SIM, TEMPO, TRAITS } from '../config/balance';
+import { DRAFT, DUO, FATIGUE, MATCHUP, POOL, SIM, STYLE, TEMPO, TRAITS } from '../config/balance';
+import { earlyPhase, latePhase, teamStyle, type StyleProfile } from './teamstyle';
 import type { DraftResult, CompScore } from './draft';
 import { championAttrs, championTags } from './champions';
 import { duoValue, teamDuos, type DuoKey, type DuoScore } from './duo';
@@ -145,6 +146,8 @@ export class GameSim {
   eff: [RatedPlayer[], RatedPlayer[]];
   conditions: [PlayerCondition[], PlayerCondition[]];
   duos: [DuoScore[], DuoScore[]];
+  /** playstyle effects per team (aggressive jungle, lane bullies, split push, scaling, ...) */
+  style: [StyleProfile, StyleProfile];
   /** last tempo swing: who got it, when, how big */
   tempo: { side: Side; t: number; mag: number; why: string } | null = null;
   pendingCracks: Actor[] = [];
@@ -161,6 +164,7 @@ export class GameSim {
     this.conditions = [0, 1].map((s) => this.conditionsFor(s as Side)) as [PlayerCondition[], PlayerCondition[]];
     this.eff = [0, 1].map((s) => input.teams[s].players.map((p, i) => withDelta(p, this.conditions[s][i].delta))) as [RatedPlayer[], RatedPlayer[]];
     this.duos = [0, 1].map((s) => input.teams[s].duos ?? teamDuos(input.teams[s].players)) as [DuoScore[], DuoScore[]];
+    this.style = [teamStyle(input.teams[0].players), teamStyle(input.teams[1].players)];
     const avgDelta = (s: Side) => this.conditions[s].reduce((a, c) => a + c.delta, 0) / 5;
     this.power = [
       input.teams[0].rating + this.form[0] + DRAFT.draftValueToRating * (dv[0] - dv[1]) / 2 + 0.6 * avgDelta(0),
@@ -342,6 +346,11 @@ export class GameSim {
     return roles.reduce((a, i) => a + (m[i] ?? 0), 0) / roles.length;
   }
 
+  /** Early lane edge from playstyles (lane bullies, weakside) for side 0, averaged over the lane's roles. */
+  styleLaneDiff(roles: readonly number[]): number {
+    return roles.reduce((a, i) => a + this.style[0].laneEarly[i] - this.style[1].laneEarly[i], 0) / roles.length;
+  }
+
   // ------------- events -------------
   /** Win probability for side 0 in a lane matchup. */
   laneProb(lane: (typeof LANES)[number]): number {
@@ -354,6 +363,7 @@ export class GameSim {
     if (lane.key === 'top') x += 0.5 * DUO.toLogit * this.duoDiff('JNG-TOP');
     if (lane.key === 'mid') x += 0.5 * DUO.toLogit * this.duoDiff('JNG-MID');
     x += MATCHUP.toLogit * this.laneMatchup(lane.roles);
+    x += earlyPhase(this.t) * this.styleLaneDiff(lane.roles);
     return sigmoid(x);
   }
 
@@ -363,6 +373,7 @@ export class GameSim {
     let x = SIM.playerDiffToLogit * this.statDiff([3, 4], (p) => 0.6 * p.rating.laning + 0.4 * p.rating.strength);
     x += DUO.toLogit * 1.4 * this.duoDiff('BOT-SUP');
     x += MATCHUP.toLogit * this.laneMatchup([3, 4]);
+    x += earlyPhase(this.t) * this.styleLaneDiff([3, 4]);
     x += SIM.compToLogit * (this.comp(0).early - this.comp(1).early) / 3 + 0.3 * SIM.ratingToLogit * (this.power[0] - this.power[1]);
     const w: Side = this.rng.chance(sigmoid(x + 0.2 * this.rng.normal())) ? 0 : 1;
     const l = (1 - w) as Side;
@@ -415,7 +426,8 @@ export class GameSim {
     const l = (1 - w) as Side;
     const lead = lane.roles[0];
     const aggr = this.p(w, lead).rating.aggression / 100;
-    if (this.rng.chance(SIM.soloKillBase * (0.6 + aggr) * (lane.key === 'bot' ? 1.3 : 1))) {
+    const styleKill = this.style[w].soloKillFor[lead] * this.style[l].soloKillAgainst[lead];
+    if (this.rng.chance(SIM.soloKillBase * (0.6 + aggr) * (lane.key === 'bot' ? 1.3 : 1) * styleKill)) {
       const killer = lane.roles.length > 1 && this.rng.chance(0.4) ? lane.roles[1] : lead;
       const victim = this.rng.pick(lane.roles);
       const solo = lane.roles.length === 1;
@@ -461,24 +473,29 @@ export class GameSim {
     if (this.p(side, 1).playstyle.includes('passive')) x -= TRAITS.passiveLogit * 2;
     x += TRAITS.poorVisionLogit * this.traitCount(opp, 'poor_vision');
     x += 0.5 * TRAITS.weakLaneLogit * this.traitCount(opp, 'weak_laner', lane.roles);
+    // playstyles: aggressive jungle + a laner who follows up, against weakside laners and vision control
+    x += earlyPhase(this.t) * this.style[side].gankEarly[lane.key] - this.style[opp].gankDefense[lane.key];
     return sigmoid(x);
   }
 
   gank() {
-    const w0 = this.p(0, 1).rating.aggression + 30;
-    const w1 = this.p(1, 1).rating.aggression + 30;
+    const w0 = (this.p(0, 1).rating.aggression + 30) * this.style[0].gankRate;
+    const w1 = (this.p(1, 1).rating.aggression + 30) * this.style[1].gankRate;
     const side: Side = this.rng.next() < w0 / (w0 + w1) ? 0 : 1;
     const opp = (1 - side) as Side;
     // gank where the enemy is weakest relative to the ally
-    const lane = this.rng.weighted(LANES, (l) => 1 + Math.max(0, (side === 0 ? 1 : -1) * this.laneLead[l.key]) / 400 + (100 - this.p(opp, l.roles[0]).rating.laning) / 50);
+    // gank where the enemy is weakest relative to the ally, and where an ally laner follows up
+    const lane = this.rng.weighted(LANES, (l) => 1 + Math.max(0, (side === 0 ? 1 : -1) * this.laneLead[l.key]) / 400 + (100 - this.p(opp, l.roles[0]).rating.laning) / 50 + 2 * earlyPhase(this.t) * Math.max(0, this.style[side].gankEarly[l.key] - STYLE.aggroJungleGank));
     const p = this.gankProb(side, lane);
     const roll = this.rng.next();
     const target = this.rng.pick(lane.roles);
-    const dive = this.t > 9 * 60 && this.rng.chance(0.35);
+    const dive = this.t > 9 * 60 && this.rng.chance(this.style[side].diveShare);
     if (roll < p) {
       const killer = lane.roles.length > 1 ? this.rng.pick([1, ...lane.roles]) : this.rng.pick([1, lane.roles[0]]);
       const fb = this.kill(side, killer, target, [1, ...lane.roles]);
       let text = `${this.name(side, 1)} ${dive ? 'dives' : 'ganks'} ${lane.key}: ${this.name(opp, target)} dies to ${this.p(side, killer).handle}${fb}`;
+      const follow = earlyPhase(this.t) > 0.5 ? lane.roles.find((i) => this.p(side, i).playstyle.some((t) => t === 'aggressive' || t === 'lane_bully')) : undefined;
+      if (follow !== undefined && this.p(side, 1).playstyle.includes('aggressive')) text += ` (${this.p(side, follow).handle} had prio and followed up)`;
       if (lane.roles.length > 1 && this.rng.chance(0.3)) {
         const other = lane.roles.find((r) => r !== target)!;
         this.kill(side, killer, other, [1, ...lane.roles]);
@@ -521,6 +538,7 @@ export class GameSim {
     const targetLane = a.idx === 2 ? this.rng.pick(LANES.filter((l) => l.key !== 'mid')) : this.rng.pick(LANES.filter((l) => l.key !== 'bot'));
     let x = SIM.playerDiffToLogit * (this.p(a.side, a.idx).rating.impact - targetLane.roles.reduce((s, i) => s + this.p(opp, i).rating.vision * 0.5 + this.p(opp, i).rating.laning * 0.5, 0) / targetLane.roles.length + 8);
     x += 0.5 * SIM.ratingToLogit * (this.power[a.side] - this.power[opp]);
+    x += this.style[a.side].roam - 0.5 * this.style[opp].gankDefense[targetLane.key];
     const helpers = targetLane.roles;
     if (this.rng.chance(sigmoid(x))) {
       const victim = this.rng.pick(targetLane.roles);
@@ -687,7 +705,13 @@ export class GameSim {
     // can the support keep the carries alive against the enemy's divers?
     x += SIM.peelToLogit * (Math.max(-3, Math.min(3, this.peelMargin(0))) - Math.max(-3, Math.min(3, this.peelMargin(1))));
     x -= TRAITS.passiveLogit * this.traitDiff('passive');
+    x += this.styleFight(0) - this.styleFight(1);
     return sigmoid(x);
+  }
+  /** Teamfight logit from playstyles: teamfighters/engagers, early-game teams before ~20 min, carries/scaling late. */
+  styleFight(side: Side): number {
+    const st = this.style[side];
+    return st.teamfight + earlyPhase(this.t) * st.earlyFight + latePhase(this.t) * st.lateFight;
   }
 
   teamfight(loc?: LocationKey) {
@@ -760,7 +784,7 @@ export class GameSim {
   }
 
   pick() {
-    const side: Side = this.rng.chance(sigmoid(this.baseLogit() + SIM.playerDiffToLogit * this.statDiff([1, 4], (p) => p.rating.vision) - TRAITS.poorVisionLogit * this.traitDiff('poor_vision'))) ? 0 : 1;
+    const side: Side = this.rng.chance(sigmoid(this.baseLogit() + SIM.playerDiffToLogit * this.statDiff([1, 4], (p) => p.rating.vision) - TRAITS.poorVisionLogit * this.traitDiff('poor_vision') + this.style[0].pick - this.style[1].pick)) ? 0 : 1;
     const opp = (1 - side) as Side;
     const victim = this.rng.pick([0, 2, 3]);
     const by = this.rng.pick([1, 4, 2]);
@@ -774,8 +798,19 @@ export class GameSim {
     for (const side of [0, 1] as Side[]) this.input.teams[side].players.forEach((p, i) => p.playstyle.includes('splitpusher') && cands.push({ side, idx: i }));
     if (!cands.length) return false;
     const a = this.rng.pick(cands);
+    const opp = (1 - a.side) as Side;
+    // a vision-control team catches the split pusher
+    if (this.rng.chance(this.style[opp].splitCatch)) {
+      const by = this.rng.pick([1, 4, 2]);
+      this.kill(opp, by, a.idx, [by, 4]);
+      this.setTempo(opp, TEMPO.gank, 'pick');
+      this.log({ kind: 'pick', location: this.rng.pick(['topRiver', 'botRiver']), actors: [{ side: opp, idx: by }, a], side: opp, text: `${this.name(a.side, a.idx)} pushes too far without vision: ${this.name(opp, by)} catches the split push` });
+      return true;
+    }
     const c = this.comp(a.side).split;
-    if (!this.rng.chance(0.35 + c / 60)) return false;
+    // beats a weaker side laner, needs teammates to hold the 4v4
+    const edge = (this.p(a.side, a.idx).rating.laning - this.p(opp, a.idx).rating.laning) / 100;
+    if (!this.rng.chance(Math.max(0.1, Math.min(0.9, 0.35 + c / 60 + this.style[a.side].split + STYLE.splitLaning * edge)))) return false;
     if (this.towers[a.side] < 9) this.towers[a.side]++;
     this.addGold(a.side, SIM.towerGold, a.idx);
     this.log({ kind: 'tower', location: this.rng.pick(['top', 'bot']), actors: [a], side: a.side, text: `${this.name(a.side, a.idx)} split pushes a side lane (1-3-1) and takes a tower` });
@@ -851,8 +886,9 @@ export class GameSim {
       if (this.t >= this.next.baron && this.rng.chance(min > 24 ? 0.75 : 0.45)) { this.resolveObjective('baron'); continue; }
       if (min < 14) {
         const r = this.rng.next();
+        const gankShare = Math.min(0.45, 0.35 * (this.style[0].gankRate + this.style[1].gankRate) / 2);
         if (r < 0.5) this.laneEvent();
-        else if (r < 0.85) this.gank();
+        else if (r < 0.5 + gankShare) this.gank();
         else if (!this.roam()) this.laneEvent();
       } else {
         const r = this.rng.next();

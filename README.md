@@ -188,6 +188,15 @@ Every z-score is multiplied by `games/(games+8)` before the thresholds, so a ful
 
 - **Team power** = team rating + per-game form swing (sd 6) + draft-value difference + 0.6 × the players' average form delta.
 - **Lane matchups**: lane events and bot-lane 2v2s add `0.55 × matchup` (the lane's average champion matchup) to the logit.
+- **Playstyle effects** (`src/lib/teamstyle.ts`, numbers in `STYLE` in `src/config/balance.ts`): each lineup gets a style profile that the team builder shows as a "Game plan" (with the game phase each effect applies to) and the simulation applies. "Early" effects are full until 12:00 and fade out by 20:00; "late" effects ramp up from 22:00 to 30:00.
+  - **Aggressive jungler**: ganks 30% more often, early ganks land more (+0.25 logit), more tower dives. With an **aggressive or lane-bully laner** in a lane, ganks there get another +0.4 early (the laner has prio and follows up) and the jungler targets that lane more. **Passive jungler**: 25% fewer ganks.
+  - **Lane bully**: +0.35 early lane logit (trades, plates, 2v2s). **Aggressive laner**: 35% more solo kills in their lane, both ways. **Weakside**: harder to gank (−0.3) and to solo kill, slightly worse lane.
+  - **Vision control** (per player, max 2): enemy ganks and roams land less, more picks, and enemy split pushers get caught.
+  - **Roamer**: roams land more, more again with an aggressive jungler.
+  - **Teamfighter / engager**: +0.07 / +0.05 teamfight logit each. **Carry** (max 2): +0.12 each in late teamfights. Lane bullies without a carry fall off late.
+  - **Team identity**: 3+ aggressive / lane-bully players = **early-game team** (+0.2 in fights before 20:00, −0.15 late); 2+ carries with at most one early player = **scaling team** (−0.1 early, +0.15 late).
+  - **Split pusher**: side-lane tower chance rises with the laning edge over the enemy laner and with teammates who hold the 4v4 (teamfighters); split pushes into vision-control teams get caught.
+  - Measured on real rosters (same games with the style tags removed): early-game teams gain about +3 points of win rate and end games slightly sooner, scaling teams trade early fights for late ones.
 - **Per-player form**: each player plays the game at `rating + delta` (laning, impact, teamfight, aggression, strength):
   - champion: `clamp((mastery − 0.8) · 25, −16, +5)`: a signature pick is worth up to +5, an off-pool champion about −12, a default-pool champion −16.
   - fatigue: in game 4 / game 5 of a series, `−5 / −8 × (1 − experience/100)`.
@@ -208,7 +217,7 @@ Every z-score is multiplied by `games/(games+8)` before the thresholds, so a ful
 - `strength.test.ts`: ordering, sample shrinkage, role weights (TOP laning > SUP laning)
 - `synergy.test.ts`: 0/1/2/3 shotcaller cases, played-together values and cap, region cap, playstyle fits, Swiss rematch avoidance
 - `draft.test.ts`: 10 unique picks and 10 bans, bans hit comfort picks, fearless locking raises pool exhaustion and lowers draft value by game 5
-- `features.test.ts`: tempo after dragon raises herald odds and decays; duo familiarity and style; a strong bot duo wins more dragons and 2v2s; greedier draft plans get more planned picks banned; known counters win the lane and a won matchup raises lane odds; later picks get better matchups than blind picks; the AI picks every strategy and goes aggressive more under elimination; read enemy plan picks get banned; pool tiers; fatigue in game 5 hits rookies not veterans; rookies crack under pressure far more than veterans; experience grows with career
+- `features.test.ts`: tempo after dragon raises herald odds and decays; duo familiarity and style; a strong bot duo wins more dragons and 2v2s; greedier draft plans get more planned picks banned; known counters win the lane and a won matchup raises lane odds; later picks get better matchups than blind picks; the AI picks every strategy and goes aggressive more under elimination; read enemy plan picks get banned; aggressive jungle + aggressive top win early top ganks (fading later), weakside laners are harder to gank, lane bullies win early lanes only, early-game teams get more early kills while scaling teams win late fights, split pushers get caught by vision-control teams; pool tiers; fatigue in game 5 hits rookies not veterans; rookies crack under pressure far more than veterans; experience grows with career
 - `events.test.ts`: over 1,000 sims, a stronger top laner wins grubs more than 50% of the time, even teams land at 40–60%, a stronger bot lane wins dragons more often, gank probability rises with jungler strength, no-shotcaller teams lose more Barons, the stronger team wins most games, and games are deterministic per seed
 
 ## Project layout
@@ -216,7 +225,7 @@ Every z-score is multiplied by `games/(games+8)` before the thresholds, so a ful
 ```
 src/config/balance.ts   every tunable number
 src/data/               teams.json, meta.json, ddragon.json, championAttrs.json, overrides.json
-src/lib/                rng, stats, strength (+ experience), playstyle, synergy, duo, champions, draft (+ plans), game, series, tournament, run, data
+src/lib/                rng, stats, strength (+ experience), playstyle, synergy, duo, teamstyle, champions, draft (+ plans), game, series, tournament, run, data
 src/components/         PlayerCard, TeamPanel (+ radar), DraftView, GameView, RiftMap (+ gold graph), atoms
 src/screens/            Start, Draft, Tournament (standings + bracket), Series, Results
 scripts/scrape.ts       Worlds rosters/placements from Leaguepedia / gol.gg / Data Dragon

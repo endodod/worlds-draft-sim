@@ -153,6 +153,58 @@ export const AI_PLAN = {
   bannedDeep: 0.12,
 };
 
+// ---------- Playstyle effects in the game (src/lib/teamstyle.ts) ----------
+/** All values are logits (or multipliers where noted). "Early" is full strength until earlyFull, then fades out by earlyEnd. */
+export const STYLE = {
+  earlyFull: 12 * 60,
+  earlyEnd: 20 * 60,
+  lateStart: 22 * 60,
+  lateFull: 30 * 60,
+  // jungle
+  /** aggressive jungler: gank frequency multiplier and early gank success into every lane */
+  aggroJungleRate: 1.3,
+  aggroJungleGank: 0.25,
+  /** aggressive jungler + aggressive / lane-bully laner: the laner has prio and follows up (early gank success into that lane) */
+  followUpGank: 0.4,
+  /** aggressive jungler: dive share (high risk, high reward) */
+  aggroDive: 0.5,
+  /** passive jungler: gank frequency multiplier */
+  passiveJungleRate: 0.75,
+  // laners
+  /** lane bully: early lane logit; lane-bully-heavy teams fall off late if nobody scales */
+  laneBully: 0.35,
+  /** aggressive laner: solo-kill chance multiplier in their lane (both ways: they also die more) */
+  aggroSoloKill: 1.35,
+  /** weakside laner: enemy ganks into their lane (plays safe), solo kills against them (multiplier), early lane logit */
+  weaksideGankDefense: 0.3,
+  weaksideSoloKill: 0.65,
+  weaksideLane: -0.1,
+  /** vision control (per player, max 2): enemy gank success everywhere and pick odds */
+  visionGankDefense: 0.12,
+  visionPick: 0.15,
+  /** roamer: roam success, extra with an aggressive jungler */
+  roam: 0.15,
+  roamAggroJungle: 0.2,
+  // fights
+  /** teamfighter (per player) and engager (per player) in teamfights */
+  teamfighter: 0.07,
+  engager: 0.05,
+  /** carry (per player, max 2): late teamfights; lane bully without a carry: late teamfights */
+  carryLate: 0.12,
+  bullyLate: -0.05,
+  /** team identity: 3+ aggressive / lane-bully players = early-game team; 2+ carries and at most 1 early player = scaling team */
+  earlyTeamEarly: 0.2,
+  earlyTeamLate: -0.15,
+  scalingTeamEarly: -0.1,
+  scalingTeamLate: 0.15,
+  // split push
+  /** splitpusher: extra split chance per teamfighter holding 4v4 (max 3) and per point of laning edge over the enemy laner (/100) */
+  splitPerTeamfighter: 0.06,
+  splitLaning: 0.4,
+  /** a split push into a vision-control team gets caught this often (per vision-control player) */
+  splitCaught: 0.12,
+};
+
 // ---------- Lane matchups ----------
 export const MATCHUP = {
   /** attribute weights (per point of difference, attributes are 0..5) */
