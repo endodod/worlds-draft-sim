@@ -77,6 +77,26 @@ export function deadAt(events: GameEvent[], idx: number): Set<string> {
   return dead;
 }
 
+export type LaneKey = 'top' | 'mid' | 'bot';
+export const LANE_KEYS: LaneKey[] = ['top', 'mid', 'bot'];
+
+/** Structures LOST by each side (index = owner), per lane in LANE_KEYS order. */
+export interface StructureState {
+  /** towers down per lane: 0..3 (outer, inner, inhibitor tower fall in that order) */
+  towers: [number[], number[]];
+  inhibs: [boolean[], boolean[]];
+  /** the two nexus towers */
+  nexusTowers: [number, number];
+  nexus: [boolean, boolean];
+}
+
+/** What each pit holds next and when it is (or was) up, in game seconds. */
+export interface PitState {
+  dragon: { kind: 'dragon' | 'elder'; type?: string; at: number } | null;
+  baron: { kind: 'grubs' | 'herald' | 'baron'; at: number } | null;
+  atakhan: { at: number } | null;
+}
+
 export interface ScoreSnapshot {
   kills: [number, number];
   gold: [number, number];
@@ -85,6 +105,8 @@ export interface ScoreSnapshot {
   barons: [number, number];
   /** live K/D/A per player [side][role] */
   kda: [number[][], number[][]];
+  structures?: StructureState;
+  pits?: PitState;
 }
 
 export interface PlayerLine {
@@ -127,6 +149,7 @@ export class GameSim {
   gold: [number, number] = [2500, 2500];
   towers: [number, number] = [0, 0];
   inhibs: [number, number] = [0, 0];
+  structures: StructureState = { towers: [[0, 0, 0], [0, 0, 0]], inhibs: [[false, false, false], [false, false, false]], nexusTowers: [0, 0], nexus: [false, false] };
   dragons: [string[], string[]] = [[], []];
   barons: [number, number] = [0, 0];
   grubs: [number, number] = [0, 0];
@@ -285,7 +308,56 @@ export class GameSim {
     return `${String(m).padStart(2, '0')}:${String(s).padStart(2, '0')}`;
   }
   snapshot(): ScoreSnapshot {
-    return { kills: [...this.kills], gold: [Math.round(this.gold[0]), Math.round(this.gold[1])], towers: [...this.towers], dragons: [[...this.dragons[0]], [...this.dragons[1]]], barons: [...this.barons], kda: [this.lines[0].map((l) => [l.k, l.d, l.a]), this.lines[1].map((l) => [l.k, l.d, l.a])] };
+    return { kills: [...this.kills], gold: [Math.round(this.gold[0]), Math.round(this.gold[1])], towers: [...this.towers], dragons: [[...this.dragons[0]], [...this.dragons[1]]], barons: [...this.barons], kda: [this.lines[0].map((l) => [l.k, l.d, l.a]), this.lines[1].map((l) => [l.k, l.d, l.a])], structures: this.structureSnapshot(), pits: this.pitSnapshot() };
+  }
+  structureSnapshot(): StructureState {
+    const st = this.structures;
+    return { towers: [[...st.towers[0]], [...st.towers[1]]], inhibs: [[...st.inhibs[0]], [...st.inhibs[1]]], nexusTowers: [...st.nexusTowers], nexus: [...st.nexus] };
+  }
+  pitSnapshot(): PitState {
+    const n = this.next;
+    const fin = (v: number) => Number.isFinite(v);
+    const elderFirst = fin(n.elder) && (!fin(n.dragon) || n.elder <= n.dragon);
+    const dragon: PitState['dragon'] = elderFirst ? { kind: 'elder', at: n.elder } : fin(n.dragon) ? { kind: 'dragon', at: n.dragon, ...(this.soulType ? { type: this.soulType } : {}) } : null;
+    const top = (['grubs', 'herald', 'baron'] as const).filter((k) => fin(n[k])).sort((a, b) => n[a] - n[b])[0];
+    return { dragon, baron: top ? { kind: top, at: n[top] } : null, atakhan: fin(n.atakhan) ? { at: n.atakhan } : null };
+  }
+
+  /**
+   * `side` destroys one enemy tower, in `lane` if it still has one standing, else in the lane pushed deepest.
+   * Bumps the tower total too. No randomness, so the simulation's dice stay untouched.
+   */
+  takeTower(side: Side, lane?: LaneKey): LaneKey | null {
+    if (this.towers[side] >= 9) return null;
+    const lost = this.structures.towers[(1 - side) as Side];
+    let i = lane ? LANE_KEYS.indexOf(lane) : -1;
+    if (i < 0 || lost[i] >= 3) {
+      // deepest lane that still has a tower; ties go mid, bot, top
+      i = -1;
+      for (const j of [1, 2, 0]) if (lost[j] < 3 && (i < 0 || lost[j] > lost[i])) i = j;
+      if (i < 0) return null;
+    }
+    lost[i]++;
+    this.towers[side]++;
+    return LANE_KEYS[i];
+  }
+
+  /** `side` destroys an enemy inhibitor in a lane whose three towers are down (taking the missing tower first if needed). */
+  takeInhib(side: Side) {
+    const opp = (1 - side) as Side;
+    const lost = this.structures.towers[opp];
+    const inh = this.structures.inhibs[opp];
+    let i = [1, 2, 0].find((j) => lost[j] >= 3 && !inh[j]) ?? -1;
+    if (i < 0) {
+      for (const j of [1, 2, 0]) if (!inh[j] && (i < 0 || lost[j] > lost[i])) i = j;
+      if (i < 0) return;
+      while (lost[i] < 3) {
+        lost[i]++;
+        if (this.towers[side] < 9) this.towers[side]++;
+      }
+    }
+    inh[i] = true;
+    this.inhibs[side]++;
   }
   log(e: Omit<GameEvent, 't' | 'score' | 'text'> & { text: string }) {
     const major = e.major ?? (e.kind === 'end' || (e.kind === 'objective' && (e.objective === 'baron' || e.objective === 'elder' || e.objective === 'atakhan')) || /FIRST BLOOD|ACE|SOUL|inhibitor/.test(e.text));
@@ -562,8 +634,7 @@ export class GameSim {
     const lead = this.laneLead[lane];
     if (Math.abs(lead) < 900 || !this.rng.chance(0.4)) return;
     const side: Side = lead > 0 ? 0 : 1;
-    if (this.towers[side] >= 9) return;
-    this.towers[side]++;
+    if (!this.takeTower(side, lane)) return;
     this.addGold(side, SIM.towerGold);
     this.laneLead[lane] -= Math.sign(lead) * 600;
     this.log({ kind: 'tower', location: lane, actors: [], side, text: `${this.team(side)} take a ${lane} tower (${this.towers[side]} total)` });
@@ -671,8 +742,9 @@ export class GameSim {
     } else if (kind === 'herald') {
       this.heralds[w]++;
       this.addGold(w, SIM.objectiveGold.herald);
-      this.log({ kind: 'objective', objective: 'herald', location: 'baron', actors, side: w, text: `${fightText}${team} take Rift Herald and crash it into ${this.rng.pick(['mid', 'top', 'bot'])}${suffix}` });
-      if (this.towers[w] < 9) this.towers[w]++;
+      const crash = this.rng.pick<LaneKey>(['mid', 'top', 'bot']);
+      this.log({ kind: 'objective', objective: 'herald', location: 'baron', actors, side: w, text: `${fightText}${team} take Rift Herald and crash it into ${crash}${suffix}` });
+      this.takeTower(w, crash);
       this.next.herald = Infinity;
     } else if (kind === 'atakhan') {
       this.addGold(w, SIM.objectiveGold.atakhan);
@@ -811,9 +883,10 @@ export class GameSim {
     // beats a weaker side laner, needs teammates to hold the 4v4
     const edge = (this.p(a.side, a.idx).rating.laning - this.p(opp, a.idx).rating.laning) / 100;
     if (!this.rng.chance(Math.max(0.1, Math.min(0.9, 0.35 + c / 60 + this.style[a.side].split + STYLE.splitLaning * edge)))) return false;
-    if (this.towers[a.side] < 9) this.towers[a.side]++;
+    const lane = this.rng.pick<LaneKey>(['top', 'bot']);
+    this.takeTower(a.side, lane);
     this.addGold(a.side, SIM.towerGold, a.idx);
-    this.log({ kind: 'tower', location: this.rng.pick(['top', 'bot']), actors: [a], side: a.side, text: `${this.name(a.side, a.idx)} split pushes a side lane (1-3-1) and takes a tower` });
+    this.log({ kind: 'tower', location: lane, actors: [a], side: a.side, text: `${this.name(a.side, a.idx)} split pushes a side lane (1-3-1) and takes a tower` });
     return true;
   }
 
@@ -821,10 +894,10 @@ export class GameSim {
   push(side: Side, reason: 'baron' | 'elder' | 'ace' | 'fight') {
     const opp = (1 - side) as Side;
     const taken = reason === 'fight' ? this.rng.int(0, 1) : this.rng.int(1, 3);
-    for (let i = 0; i < taken && this.towers[side] < 9; i++) this.towers[side]++;
+    for (let i = 0; i < taken; i++) this.takeTower(side);
     if (taken) this.addGold(side, SIM.towerGold * taken);
     const strong = reason !== 'fight';
-    if (this.towers[side] >= 6 && strong && this.inhibs[side] < 3 && this.rng.chance(0.6)) this.inhibs[side]++;
+    if (this.towers[side] >= 6 && strong && this.inhibs[side] < 3 && this.rng.chance(0.6)) this.takeInhib(side);
     const endChance = this.t < 22 * 60 ? 0 : this.inhibs[side] >= 1 && strong ? (reason === 'elder' || reason === 'ace' ? 0.75 : 0.45) + 0.1 * this.inhibs[side] : 0;
     if (taken) this.log({ kind: 'tower', location: opp === 1 ? 'base1' : 'base0', actors: [0, 1, 2, 3, 4].map((idx) => ({ side, idx })), side, text: `${this.team(side)} push with ${reason === 'fight' ? 'the advantage' : reason}: ${taken} tower${taken > 1 ? 's' : ''}${this.inhibs[side] ? `, ${this.inhibs[side]} inhibitor${this.inhibs[side] > 1 ? 's' : ''} down` : ''}` });
     if (this.rng.chance(endChance)) this.end(side);
@@ -834,6 +907,10 @@ export class GameSim {
     if (this.winner !== null) return;
     this.winner = side;
     this.t += 30;
+    const opp = (1 - side) as Side;
+    if (!this.structures.inhibs[opp].some(Boolean)) this.takeInhib(side);
+    this.structures.nexusTowers[opp] = 2;
+    this.structures.nexus[opp] = true;
     this.log({ kind: 'end', location: side === 0 ? 'base1' : 'base0', actors: [0, 1, 2, 3, 4].map((idx) => ({ side, idx })), side, text: `${this.team(side)} destroy the Nexus! (${this.kills[side]}-${this.kills[1 - side]} kills)` });
   }
 

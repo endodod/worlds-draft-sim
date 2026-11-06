@@ -1,6 +1,7 @@
 import type { RatedPlayer } from '../lib/types';
 import { NEGATIVE_TRAITS } from '../lib/types';
 import { poolSummary, tierOf } from '../lib/draft';
+import { rolePool } from '../lib/roleShare';
 import { Avatar, ChampIcon, RegionBadge, RoleIcon, StatBar, StrengthBadge, TagChip, TIER_STYLE } from './atoms';
 
 const FIELD_NAME: Record<string, string> = { csd15: 'CS diff @15', gd15: 'gold diff @15', xpd15: 'XP diff @15', firstBloodRate: 'first blood %', dpm: 'damage/min', damageShare: 'damage share', visionPerMin: 'vision/min' };
@@ -42,7 +43,7 @@ export function PlayerCard({ p, onPick, disabled, compact, variant = 'full' }: {
   const est = p.dataQuality === 'estimated' ? 'All stats estimated' : p.estimatedFields?.length ? `Estimated: ${p.estimatedFields.map((f) => FIELD_NAME[f] ?? f).join(', ')}` : '';
   const Wrapper = onPick ? 'button' : 'div';
   const pool = poolSummary(p);
-  const champs = [...p.champions].sort((a, b) => b.games - a.games);
+  const champs = [...rolePool(p)].sort((a, b) => b.games - a.games);
   const interactive = onPick && !disabled;
   const tags = [...p.playstyle].sort((a, b) => Number(NEGATIVE_TRAITS.includes(a)) - Number(NEGATIVE_TRAITS.includes(b)));
   if (variant === 'mini')
