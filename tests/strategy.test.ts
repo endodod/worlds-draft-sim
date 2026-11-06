@@ -11,7 +11,7 @@ const NEUTRAL = ['Gnar', 'Sejuani', 'Orianna', 'Varus', 'Braum'];
 
 function draftOf(c0: string[], c1: string[]): DraftResult {
   const picks = (cs: string[]): Pick[] => cs.map((champion, i) => ({ role: ROLES[i], playerIdx: i, champion, value: 0.6, mastery: 0.8, comfort: true, tier: 'comfort', games: 5 }));
-  return { bans: [[], []], picks: [picks(c0), picks(c1)], order: [], comp: [compScore(c0), compScore(c1)], value: [0.6, 0.6], exhaustion: [[0, 0, 0, 0, 0], [0, 0, 0, 0, 0]], plans: [null, null] };
+  return { bans: [[], []], picks: [picks(c0), picks(c1)], order: [], comp: [compScore(c0), compScore(c1)], value: [0.6, 0.6], exhaustion: [[0, 0, 0, 0, 0], [0, 0, 0, 0, 0]], plans: [null, null], matchups: [0, 0, 0, 0, 0] };
 }
 const team = (players: RatedPlayer[], name = 'A'): SimTeam => ({ name, short: name, players, rating: 60, shotcallers: 1 });
 const withTags = (p: RatedPlayer, tags: Playstyle[], rating: Partial<RatedPlayer['rating']> = {}): RatedPlayer => ({ ...p, playstyle: tags, rating: { ...p.rating, ...rating } });

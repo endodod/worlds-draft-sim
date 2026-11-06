@@ -141,6 +141,88 @@ export const PLAN = {
   banRisk: { comfort: 0.42, balanced: 0.2, deep: 0.06 } as Record<string, number>,
 };
 
+// ---------- AI draft strategy ----------
+export const AI_PLAN = {
+  /** base weights of the strategy an AI team picks when facing a planned (user) draft */
+  weights: { comfort: 0.38, balanced: 0.37, deep: 0.25 } as Record<string, number>,
+  /** shallow pools (avg comfort champions below POOL.shallowBelow) lean aggressive: nothing to hide */
+  shallowComfort: 0.25,
+  /** facing elimination: go for the best champions */
+  pressureComfort: 0.15,
+  /** after a game where many of their planned picks got banned: lean safe */
+  bannedDeep: 0.12,
+};
+
+// ---------- Playstyle effects in the game (src/lib/teamstyle.ts) ----------
+/** All values are logits (or multipliers where noted). "Early" is full strength until earlyFull, then fades out by earlyEnd. */
+export const STYLE = {
+  earlyFull: 12 * 60,
+  earlyEnd: 20 * 60,
+  lateStart: 22 * 60,
+  lateFull: 30 * 60,
+  // jungle
+  /** aggressive jungler: gank frequency multiplier and early gank success into every lane */
+  aggroJungleRate: 1.3,
+  aggroJungleGank: 0.25,
+  /** aggressive jungler + aggressive / lane-bully laner: the laner has prio and follows up (early gank success into that lane) */
+  followUpGank: 0.4,
+  /** aggressive jungler: dive share (high risk, high reward) */
+  aggroDive: 0.5,
+  /** passive jungler: gank frequency multiplier */
+  passiveJungleRate: 0.75,
+  // laners
+  /** lane bully: early lane logit; lane-bully-heavy teams fall off late if nobody scales */
+  laneBully: 0.35,
+  /** aggressive laner: solo-kill chance multiplier in their lane (both ways: they also die more) */
+  aggroSoloKill: 1.35,
+  /** weakside laner: enemy ganks into their lane (plays safe), solo kills against them (multiplier), early lane logit */
+  weaksideGankDefense: 0.3,
+  weaksideSoloKill: 0.65,
+  weaksideLane: -0.1,
+  /** vision control (per player, max 2): enemy gank success everywhere and pick odds */
+  visionGankDefense: 0.12,
+  visionPick: 0.15,
+  /** roamer: roam success, extra with an aggressive jungler */
+  roam: 0.15,
+  roamAggroJungle: 0.2,
+  // fights
+  /** teamfighter (per player) and engager (per player) in teamfights */
+  teamfighter: 0.07,
+  engager: 0.05,
+  /** carry (per player, max 2): late teamfights; lane bully without a carry: late teamfights */
+  carryLate: 0.12,
+  bullyLate: -0.05,
+  /** team identity: 3+ aggressive / lane-bully players = early-game team; 2+ carries and at most 1 early player = scaling team */
+  earlyTeamEarly: 0.2,
+  earlyTeamLate: -0.15,
+  scalingTeamEarly: -0.1,
+  scalingTeamLate: 0.15,
+  // split push
+  /** splitpusher: extra split chance per teamfighter holding 4v4 (max 3) and per point of laning edge over the enemy laner (/100) */
+  splitPerTeamfighter: 0.06,
+  splitLaning: 0.4,
+  /** a split push into a vision-control team gets caught this often (per vision-control player) */
+  splitCaught: 0.12,
+};
+
+// ---------- Lane matchups ----------
+export const MATCHUP = {
+  /** attribute weights (per point of difference, attributes are 0..5) */
+  early: 0.12,
+  poke: 0.05,
+  waveclear: 0.03,
+  /** draft value: up to ±counterValue (25%) for the best/worst lane matchup */
+  counterValue: 0.25,
+  /** a planned pick is swapped for another own-pool champion when its lane matchup is this bad */
+  dodgeBelow: -0.45,
+  /** ban priority bonus (per 1.0 of matchup) for a champion that counters one of your planned picks */
+  banCounter: 0.6,
+  /** game sim: logit per 1.0 of lane matchup (lane events, bot 2v2s, ganks into a lane) */
+  toLogit: 0.55,
+  /** jungle "matchup" (early invade pressure) counts less */
+  jungleWeight: 0.5,
+};
+
 // ---------- Series fatigue and pressure ----------
 export const FATIGUE = {
   /** rating penalty for a 0-experience player in game 4 / game 5, scaled by (1 - experience/100) */

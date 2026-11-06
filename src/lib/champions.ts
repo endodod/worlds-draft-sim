@@ -1,7 +1,7 @@
 import attrsJson from '../data/championAttrs.json';
 import ddragon from '../data/ddragon.json';
 import metaJson from '../data/meta.json';
-import { DDRAGON_VERSION, DRAFT } from '../config/balance';
+import { DDRAGON_VERSION, DRAFT, MATCHUP } from '../config/balance';
 import type { ChampionAttrs, Role } from './types';
 
 const ATTRS = (attrsJson as { attrs: Record<string, number[]> }).attrs;
@@ -107,6 +107,45 @@ export function comboBonus(champ: string, current: string[]): { bonus: number; w
     }
   }
   return { bonus, with: w };
+}
+
+/**
+ * Well-known lane counters: [counter, countered, strength 0..1]. Added on top of the attribute-based matchup.
+ * Kept small: only classic, long-standing matchups.
+ */
+const COUNTERS: [string, string, number][] = [
+  // top
+  ['Malphite', 'Yasuo', 0.4], ['Malphite', 'Tryndamere', 0.5], ['Poppy', 'Camille', 0.35], ['Poppy', 'Yasuo', 0.4], ['Poppy', 'Jayce', 0.2],
+  ['Renekton', 'Kayle', 0.45], ['Jayce', 'Ornn', 0.3], ['Vayne', 'Ornn', 0.4], ['Teemo', 'Aatrox', 0.25], ['Gragas', 'Ornn', 0.2],
+  ['Darius', 'Gnar', 0.25], ['Jax', 'Gragas', 0.2], ['Fiora', 'Ornn', 0.35], ['Kennen', 'Aatrox', 0.3], ['Rumble', 'Sion', 0.3],
+  // mid
+  ['Galio', 'LeBlanc', 0.4], ['Galio', 'Ahri', 0.3], ['Galio', 'Akali', 0.3], ['Lissandra', 'Zed', 0.4], ['Lissandra', 'Akali', 0.3],
+  ['Syndra', 'Kassadin', 0.4], ['Taliyah', 'Kassadin', 0.3], ['Pantheon', 'Kassadin', 0.45], ['Malzahar', 'Yasuo', 0.35], ['Annie', 'Yasuo', 0.25],
+  ['Kassadin', 'Ahri', 0.2], ['Corki', 'Azir', 0.15], ['Viktor', 'Orianna', 0.1], ['Sylas', 'Ryze', 0.2], ['Tristana', 'Azir', 0.2],
+  // bot
+  ['Draven', 'Aphelios', 0.3], ['Draven', 'Jinx', 0.3], ['Lucian', 'Jinx', 0.3], ['Caitlyn', "Kog'Maw", 0.3], ['Caitlyn', 'Jinx', 0.2],
+  ['Kalista', 'Aphelios', 0.3], ['Kalista', 'Jinx', 0.25], ['Varus', 'Aphelios', 0.15], ['Ezreal', 'Samira', 0.2], ['Ashe', 'Samira', 0.25],
+  // support
+  ['Morgana', 'Blitzcrank', 0.5], ['Morgana', 'Thresh', 0.3], ['Morgana', 'Nautilus', 0.4], ['Morgana', 'Leona', 0.4], ['Morgana', 'Pyke', 0.3],
+  ['Janna', 'Leona', 0.4], ['Janna', 'Alistar', 0.3], ['Lulu', 'Pyke', 0.2], ['Braum', 'Blitzcrank', 0.2], ['Rakan', 'Karma', 0.15],
+  ['Renata Glasc', 'Nautilus', 0.2], ['Karma', 'Alistar', 0.2], ['Nami', 'Leona', 0.2],
+];
+const COUNTER_MAP = new Map<string, number>();
+for (const [a, b, v] of COUNTERS) {
+  COUNTER_MAP.set(`${a}|${b}`, v);
+  COUNTER_MAP.set(`${b}|${a}`, -v);
+}
+
+/**
+ * Lane matchup for `champ` against the enemy `vs` in the same role, -1..1 (+ = `champ` wins the lane).
+ * From the attributes (early game, poke, waveclear) plus the known-counter table. Antisymmetric.
+ */
+export function matchup(champ: string, vs: string): number {
+  if (!vs || champ === vs) return 0;
+  const a = championAttrs(champ);
+  const b = championAttrs(vs);
+  const x = MATCHUP.early * (a.early - b.early) + MATCHUP.poke * (a.poke - b.poke) + MATCHUP.waveclear * (a.waveclear - b.waveclear) + (COUNTER_MAP.get(`${champ}|${vs}`) ?? 0);
+  return Math.round(Math.max(-1, Math.min(1, x)) * 100) / 100;
 }
 
 export function ddragonVersion(): string {

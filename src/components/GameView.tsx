@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
 import type { SeriesGame, SeriesTeam } from '../lib/series';
 import { deadAt, type GameEvent } from '../lib/game';
-import { GoldGraph, MAX_TOASTS, RiftMap, TEAM_COLOR } from './RiftMap';
+import { GoldGraph, MAX_TOASTS, OBJ_ICON, RiftMap, TEAM_COLOR } from './RiftMap';
 import { ChampIcon, RoleIcon, TIER_STYLE } from './atoms';
 import { PlanStrip } from './StrategyPicker';
 
@@ -11,7 +11,6 @@ const DELAY: Record<Speed, number> = { 1: 1500, 4: 380, 12: 120 };
 export const fmt = (s: number) => `${String(Math.floor(s / 60)).padStart(2, '0')}:${String(Math.floor(s % 60)).padStart(2, '0')}`;
 
 const KIND_ICON: Record<GameEvent['kind'], string> = { lane: '⚔', gank: '🗡', roam: '↗', scuttle: '🦀', objective: '◆', fight: '✦', tower: '▲', pick: '◎', end: '★', info: 'ℹ', misplay: '!' };
-const OBJ_ICON: Record<string, string> = { dragon: '🐉', baron: '👾', grubs: '🪱', herald: '👁', atakhan: '☠', elder: '🔥' };
 
 export function GameView({ game, teams, onFinished, onSkipSeries }: { game: SeriesGame; teams: [SeriesTeam, SeriesTeam]; onFinished: () => void; onSkipSeries: () => void }) {
   // `teams` is already ordered [blue side, red side]
@@ -88,7 +87,7 @@ export function GameView({ game, teams, onFinished, onSkipSeries }: { game: Seri
 
       <div className="grid gap-3 lg:grid-cols-[minmax(0,1.15fr)_minmax(0,1fr)]">
         <div className="space-y-3">
-          <RiftMap event={current} champs={champs} names={names} dead={dead} toasts={toasts} />
+          <RiftMap event={current} champs={champs} names={names} dead={dead} toasts={toasts} teamNames={[blue.short, red.short]} />
           <GoldGraph data={game.result.gold} upTo={current.t} labels={[blue.short, red.short]} />
         </div>
         <div className="flex min-h-0 flex-col gap-3">

@@ -1,8 +1,8 @@
-import { DRAFT, PLAN, POOL, TRAITS } from '../config/balance';
+import { AI_PLAN, DRAFT, MATCHUP, PLAN, POOL, TRAITS } from '../config/balance';
 import type { ChampionAttrs, RatedPlayer, Role } from './types';
 import { ROLES } from './types';
 import type { Rng } from './rng';
-import { ATTR_KEYS, championAttrs, comboBonus, metaStrength, roleMeta, roleMetaAll } from './champions';
+import { ATTR_KEYS, championAttrs, comboBonus, matchup, metaStrength, roleMeta, roleMetaAll } from './champions';
 import { TYPICAL_SHARE, rolePool, roleShare } from './roleShare';
 
 export interface DraftTeam {
@@ -40,6 +40,8 @@ export interface Pick {
   tier: PoolTier;
   games: number; // games on this champion that year
   combo?: string[]; // champions this one combos with
+  vs?: string; // the enemy champion in the same role
+  matchup?: number; // lane matchup against `vs`, -1..1 (+ = this pick wins the lane)
 }
 
 export type CompScore = ChampionAttrs;
@@ -48,11 +50,16 @@ export interface PlanEntry {
   playerIdx: number;
   planned: string;
   final: string;
-  status: 'ok' | 'banned' | 'taken';
+  /** dodged: the planned champion was still free but hard-countered by the enemy laner, so another own-pool pick was taken */
+  status: 'ok' | 'banned' | 'taken' | 'dodged';
 }
 export interface PlanReport {
   plan: DraftPlan;
   entries: PlanEntry[];
+  /** planned champions the opponent read (they are banned first) */
+  read: string[];
+  /** the plan was chosen by the AI (the opponent's strategy) */
+  ai?: boolean;
 }
 
 export interface DraftResult {
@@ -63,6 +70,8 @@ export interface DraftResult {
   value: [number, number];
   exhaustion: [number[], number[]]; // per player 0..1
   plans: [PlanReport | null, PlanReport | null];
+  /** lane matchup per role (TOP..SUP) from side 0's point of view, -1..1 */
+  matchups: number[];
 }
 
 /** Win rate shrunk toward 50% for small samples, then turned into mastery. */
@@ -132,8 +141,30 @@ function compFit(current: string[], champ: string): number {
   return Math.max(0, Math.min(1, s));
 }
 
-export function championValue(opt: Option, year: number, current: string[]): number {
-  return opt.mastery * metaStrength(opt.champion, year) * (1 + DRAFT.compFitMax * compFit(current, opt.champion) + comboBonus(opt.champion, current).bonus);
+/** Lane matchup weight for a role index (the jungle "matchup" is early invade pressure and counts less). */
+export const matchupWeight = (idx: number) => (idx === 1 ? MATCHUP.jungleWeight : 1);
+
+/** Value factor for a lane matchup: up to ±MATCHUP.counterValue. */
+export const matchupFactor = (m: number, idx: number) => 1 + MATCHUP.counterValue * m * matchupWeight(idx);
+
+/** Draft value of a champion for a player; with `vs` (the enemy laner, already locked) the lane matchup counts too. */
+export function championValue(opt: Option, year: number, current: string[], vs?: { champion: string; idx: number }): number {
+  const base = opt.mastery * metaStrength(opt.champion, year) * (1 + DRAFT.compFitMax * compFit(current, opt.champion) + comboBonus(opt.champion, current).bonus);
+  return vs ? base * matchupFactor(matchup(opt.champion, vs.champion), vs.idx) : base;
+}
+
+/**
+ * The strategy an AI team picks against a planned draft (the user's). Hidden from the user until the draft:
+ * its picks can be read and banned like the user's. Shallow pools and elimination games lean aggressive,
+ * a previous game where many planned picks were banned leans safe.
+ */
+export function aiPlan(players: RatedPlayer[], rng: Rng, ctx: { pressure?: boolean; bannedLastGame?: number } = {}): DraftPlan {
+  const w = { ...AI_PLAN.weights } as Record<DraftPlan, number>;
+  const comfortCount = players.reduce((a, p) => a + p.champions.filter((c) => c.games >= POOL.comfortGames).length, 0) / Math.max(1, players.length);
+  if (comfortCount < POOL.shallowBelow) w.comfort += AI_PLAN.shallowComfort;
+  if (ctx.pressure) w.comfort += AI_PLAN.pressureComfort;
+  if ((ctx.bannedLastGame ?? 0) >= 2) w.deep += AI_PLAN.bannedDeep * (ctx.bannedLastGame! - 1);
+  return rng.weighted(['comfort', 'balanced', 'deep'] as DraftPlan[], (k) => w[k]);
 }
 
 /**
@@ -185,7 +216,13 @@ const SEQUENCE: { side: 0 | 1; type: 'ban' | 'pick' }[] = [
  * plan (aggressive: next best, medium: next comfort pick, safe: next pocket pick). Only when the real pool is gone does
  * the player fall back to the year's meta (off-pool) and then the default pool.
  */
-export function runDraft(teams: [DraftTeam, DraftTeam], state: SeriesDraftState, rng: Rng, plans: [DraftPlan | undefined, DraftPlan | undefined] = [undefined, undefined]): DraftResult {
+export function runDraft(
+  teams: [DraftTeam, DraftTeam],
+  state: SeriesDraftState,
+  rng: Rng,
+  plans: [DraftPlan | undefined, DraftPlan | undefined] = [undefined, undefined],
+  aiSides: [boolean, boolean] = [false, false],
+): DraftResult {
   const unavailable = new Set<string>(state.fearless ? state.locked : []);
   const bans: [string[], string[]] = [[], []];
   const picks: [Pick[], Pick[]] = [[], []];
@@ -193,6 +230,11 @@ export function runDraft(teams: [DraftTeam, DraftTeam], state: SeriesDraftState,
   const options = teams.map((t) => t.players.map((p) => playerOptions(p, t.year)));
   const filled = (side: 0 | 1) => new Set(picks[side].map((p) => p.playerIdx));
   const current = (side: 0 | 1) => picks[side].map((p) => p.champion);
+  /** the enemy champion already locked in the same role (counter-pick information) */
+  const enemyLaner = (side: 0 | 1, idx: number) => {
+    const c = picks[(1 - side) as 0 | 1].find((p) => p.playerIdx === idx)?.champion;
+    return c ? { champion: c, idx } : undefined;
+  };
 
   // plans: planned champion per player and which of them the opponent has read
   const planned: [string[] | null, string[] | null] = [null, null];
@@ -203,7 +245,7 @@ export function runDraft(teams: [DraftTeam, DraftTeam], state: SeriesDraftState,
     if (!plan) continue;
     planned[s] = planPicks(teams[s].players, teams[s].year, plan, unavailable);
     exposed[s] = planned[s]!.filter((c) => rng.chance(banRisk(plan, c, teams[s].year)));
-    reports[s] = { plan, entries: [] };
+    reports[s] = { plan, entries: [], read: [...exposed[s]], ...(aiSides[s] ? { ai: true } : {}) };
   }
   const hidden = (side: 0 | 1, champ: string) => !!planned[side]?.includes(champ) && !exposed[side].includes(champ);
 
@@ -211,7 +253,7 @@ export function runDraft(teams: [DraftTeam, DraftTeam], state: SeriesDraftState,
     let best: { opt: Option; v: number } | null = null;
     for (const o of options[side][idx]) {
       if (unavailable.has(o.champion)) continue;
-      const v = championValue(o, teams[side].year, current(side)) * (1 + 0.06 * rng.normal());
+      const v = championValue(o, teams[side].year, current(side), enemyLaner(side, idx)) * (1 + 0.06 * rng.normal());
       if (!best || v > best.v) best = { opt: o, v };
     }
     return best;
@@ -222,14 +264,17 @@ export function runDraft(teams: [DraftTeam, DraftTeam], state: SeriesDraftState,
     const want = planned[side]![idx];
     const opts = options[side][idx].filter((o) => !unavailable.has(o.champion));
     if (!opts.length) return null;
+    const vs = enemyLaner(side, idx);
+    const value = (o: Option) => championValue(o, teams[side].year, current(side), vs);
     const hit = opts.find((o) => o.champion === want);
-    if (hit) return { opt: hit, v: championValue(hit, teams[side].year, current(side)), status: 'ok' };
-    const status: PlanEntry['status'] = bans[(1 - side) as 0 | 1].includes(want) ? 'banned' : 'taken';
+    // the planned champion is free: lock it, unless the enemy laner already counters it hard
+    const countered = !!hit && !!vs && matchup(hit.champion, vs.champion) * matchupWeight(idx) <= MATCHUP.dodgeBelow;
+    if (hit && !countered) return { opt: hit, v: value(hit), status: 'ok' };
+    const status: PlanEntry['status'] = countered ? 'dodged' : bans[(1 - side) as 0 | 1].includes(want) ? 'banned' : 'taken';
     // don't take a champion a teammate still plans to play
     const reserved = new Set(planned[side]!.filter((_, i) => i !== idx && !filled(side).has(i)));
-    const free = opts.filter((o) => !reserved.has(o.champion));
+    const free = opts.filter((o) => !reserved.has(o.champion) && o.champion !== (countered ? want : ''));
     const pool = free.length ? free : opts;
-    const value = (o: Option) => championValue(o, teams[side].year, current(side));
     const byValue = (list: Option[]) => [...list].sort((a, b) => value(b) - value(a));
     const own = byValue(pool.filter((o) => o.comfort));
     const plan = plans[side]!;
@@ -245,6 +290,11 @@ export function runDraft(teams: [DraftTeam, DraftTeam], state: SeriesDraftState,
               return [...own.filter((o) => o.games <= 2 && typical(o)), ...own.filter((o) => o.games > 2), ...own.filter((o) => o.games <= 2 && !typical(o))];
             })();
     // only when the real pool is gone: the year's meta (off-pool), then the default pool
+    // dodging a counter: only for an own-pool champion with a clearly better lane
+    if (countered) {
+      const alt = preferred.find((o) => matchup(o.champion, vs!.champion) > matchup(want, vs!.champion) + 0.3);
+      return alt ? { opt: alt, v: value(alt), status } : { opt: hit!, v: value(hit!), status: 'ok' };
+    }
     const opt = preferred[0] ?? byValue(pool.filter((o) => o.tier === 'off'))[0] ?? byValue(pool)[0];
     return { opt, v: value(opt), status };
   };
@@ -268,6 +318,9 @@ export function runDraft(teams: [DraftTeam, DraftTeam], state: SeriesDraftState,
           if (state.winningChamps.has(o.champion)) v *= 1 + DRAFT.banAdaptBonus;
           // one-tricks get their signature champion banned out
           if (o.tier === 'signature' && teams[opp].players[i].playstyle.includes('one_trick')) v *= 1 + TRAITS.oneTrickBan;
+          // protect your own planned laner: ban the champion that would counter it
+          const mine = planned[side]?.[i];
+          if (mine && !filled(side).has(i)) v *= 1 + MATCHUP.banCounter * Math.max(0, matchup(o.champion, mine)) * matchupWeight(i);
           v *= 1 + 0.08 * rng.normal();
           if (!target || v > target.v) target = { champ: o.champion, v };
         }
@@ -291,11 +344,13 @@ export function runDraft(teams: [DraftTeam, DraftTeam], state: SeriesDraftState,
       unavailable.add(choice.opt.champion);
       const role = ROLES[choice.idx];
       const combo = comboBonus(choice.opt.champion, current(side)).with;
+      // stored without the lane matchup: it is applied below against the final enemy laner (so blind picks pay for being countered)
+      const base = championValue(choice.opt, teams[side].year, current(side));
       picks[side].push({
         role,
         playerIdx: choice.idx,
         champion: choice.opt.champion,
-        value: Math.round(choice.v * 1000) / 1000,
+        value: base,
         mastery: choice.opt.mastery,
         comfort: choice.opt.comfort,
         tier: choice.opt.tier,
@@ -310,10 +365,26 @@ export function runDraft(teams: [DraftTeam, DraftTeam], state: SeriesDraftState,
     picks[s].sort((a, b) => a.playerIdx - b.playerIdx);
     reports[s]?.entries.sort((a, b) => a.playerIdx - b.playerIdx);
   }
+  // lane matchups against the final enemy laner
+  const matchups = ROLES.map((_, i) => {
+    const a = picks[0].find((p) => p.playerIdx === i);
+    const b = picks[1].find((p) => p.playerIdx === i);
+    return a && b ? matchup(a.champion, b.champion) : 0;
+  });
+  for (const s of [0, 1] as const)
+    for (const pk of picks[s]) {
+      const enemy = picks[(1 - s) as 0 | 1].find((p) => p.playerIdx === pk.playerIdx);
+      const m = s === 0 ? matchups[pk.playerIdx] : -matchups[pk.playerIdx];
+      if (enemy) {
+        pk.vs = enemy.champion;
+        pk.matchup = m;
+      }
+      pk.value = Math.round(pk.value * matchupFactor(enemy ? m : 0, pk.playerIdx) * 1000) / 1000;
+    }
   const comp: [CompScore, CompScore] = [compScore(picks[0].map((p) => p.champion)), compScore(picks[1].map((p) => p.champion))];
   const value: [number, number] = [avg(picks[0].map((p) => p.value)), avg(picks[1].map((p) => p.value))];
   const exhaustion = [0, 1].map((s) => teams[s].players.map((p, i) => poolExhaustion(options[s][i], unavailable, picks[s][i]?.champion))) as [number[], number[]];
-  return { bans, picks, order, comp, value, exhaustion, plans: reports };
+  return { bans, picks, order, comp, value, exhaustion, plans: reports, matchups };
 }
 
 /** Share of a player's comfort pool (mastery-weighted) that is unavailable (fearless-locked, banned or taken). */

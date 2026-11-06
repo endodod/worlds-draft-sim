@@ -1,5 +1,6 @@
 import type { Radar as RadarT, TeamRating } from '../lib/synergy';
 import type { RatedPlayer, Role } from '../lib/types';
+import { teamStyle, type StyleEffect } from '../lib/teamstyle';
 import { ROLES } from '../lib/types';
 import { Avatar, ROLE_NAME, RoleIcon } from './atoms';
 
@@ -115,9 +116,37 @@ export function TeamPanel({ players, rating, title = 'Your roster' }: { players:
           </span>
         </div>
       </div>
+      <GamePlan players={players} />
       <div className="flex justify-center">
         <Radar data={rating.radar} />
       </div>
+    </div>
+  );
+}
+
+const PHASE: Record<StyleEffect['phase'], { label: string; cls: string }> = {
+  early: { label: 'Early', cls: 'bg-orange-500/15 text-orange-300' },
+  mid: { label: 'Mid', cls: 'bg-sky-500/15 text-sky-300' },
+  late: { label: 'Late', cls: 'bg-violet-500/15 text-violet-300' },
+  all: { label: 'All game', cls: 'bg-white/[0.06] text-slate-300' },
+};
+
+/** Playstyle effects the game simulation applies for this lineup (from src/lib/teamstyle.ts). */
+export function GamePlan({ players }: { players: RatedPlayer[] }) {
+  const effects = teamStyle(players).effects;
+  return (
+    <div className="text-sm">
+      <div className="label mb-1">Game plan · in-game effects</div>
+      {effects.length === 0 && <div className="text-xs text-slate-500">No playstyle effects yet: tags like aggressive, lane bully, split pusher or carry change how games play out.</div>}
+      {effects.map((e) => (
+        <div key={e.id} className="border-b border-white/[0.04] py-1.5">
+          <div className="flex items-center justify-between gap-2">
+            <span className={`text-[13px] font-medium ${e.good ? '' : 'text-rose-300'}`}>{e.label}</span>
+            <span className={`chip shrink-0 text-[10px] ${PHASE[e.phase].cls}`}>{PHASE[e.phase].label}</span>
+          </div>
+          <div className="text-[11px] leading-snug text-slate-500">{e.detail}</div>
+        </div>
+      ))}
     </div>
   );
 }

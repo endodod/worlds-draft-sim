@@ -1,4 +1,5 @@
-import { DRAFT, DUO, FATIGUE, POOL, SIM, STRATEGY, TEMPO, TRAITS } from '../config/balance';
+import { DRAFT, DUO, FATIGUE, MATCHUP, POOL, SIM, STRATEGY, STYLE, TEMPO, TRAITS } from '../config/balance';
+import { earlyPhase, latePhase, teamStyle, type StyleProfile } from './teamstyle';
 import type { DraftResult, CompScore } from './draft';
 import { championAttrs, championTags } from './champions';
 import { duoValue, teamDuos, type DuoKey, type DuoScore } from './duo';
@@ -82,6 +83,26 @@ export function deadAt(events: GameEvent[], idx: number): Set<string> {
   return dead;
 }
 
+export type LaneKey = 'top' | 'mid' | 'bot';
+export const LANE_KEYS: LaneKey[] = ['top', 'mid', 'bot'];
+
+/** Structures LOST by each side (index = owner), per lane in LANE_KEYS order. */
+export interface StructureState {
+  /** towers down per lane: 0..3 (outer, inner, inhibitor tower fall in that order) */
+  towers: [number[], number[]];
+  inhibs: [boolean[], boolean[]];
+  /** the two nexus towers */
+  nexusTowers: [number, number];
+  nexus: [boolean, boolean];
+}
+
+/** What each pit holds next and when it is (or was) up, in game seconds. */
+export interface PitState {
+  dragon: { kind: 'dragon' | 'elder'; type?: string; at: number } | null;
+  baron: { kind: 'grubs' | 'herald' | 'baron'; at: number } | null;
+  atakhan: { at: number } | null;
+}
+
 export interface ScoreSnapshot {
   kills: [number, number];
   gold: [number, number];
@@ -90,6 +111,8 @@ export interface ScoreSnapshot {
   barons: [number, number];
   /** live K/D/A per player [side][role] */
   kda: [number[][], number[][]];
+  structures?: StructureState;
+  pits?: PitState;
 }
 
 export interface PlayerLine {
@@ -136,6 +159,7 @@ export class GameSim {
   gold: [number, number] = [2500, 2500];
   towers: [number, number] = [0, 0];
   inhibs: [number, number] = [0, 0];
+  structures: StructureState = { towers: [[0, 0, 0], [0, 0, 0]], inhibs: [[false, false, false], [false, false, false]], nexusTowers: [0, 0], nexus: [false, false] };
   dragons: [string[], string[]] = [[], []];
   barons: [number, number] = [0, 0];
   grubs: [number, number] = [0, 0];
@@ -155,6 +179,8 @@ export class GameSim {
   eff: [RatedPlayer[], RatedPlayer[]];
   conditions: [PlayerCondition[], PlayerCondition[]];
   duos: [DuoScore[], DuoScore[]];
+  /** playstyle effects per team (aggressive jungle, lane bullies, split push, scaling, ...) */
+  style: [StyleProfile, StyleProfile];
   /** last tempo swing: who got it, when, how big */
   tempo: { side: Side; t: number; mag: number; why: string } | null = null;
   pendingCracks: Actor[] = [];
@@ -174,6 +200,7 @@ export class GameSim {
     this.conditions = [0, 1].map((s) => this.conditionsFor(s as Side)) as [PlayerCondition[], PlayerCondition[]];
     this.eff = [0, 1].map((s) => input.teams[s].players.map((p, i) => withDelta(p, this.conditions[s][i].delta))) as [RatedPlayer[], RatedPlayer[]];
     this.duos = [0, 1].map((s) => input.teams[s].duos ?? teamDuos(input.teams[s].players)) as [DuoScore[], DuoScore[]];
+    this.style = [teamStyle(input.teams[0].players), teamStyle(input.teams[1].players)];
     const avgDelta = (s: Side) => this.conditions[s].reduce((a, c) => a + c.delta, 0) / 5;
     this.power = [
       input.teams[0].rating + this.form[0] + DRAFT.draftValueToRating * (dv[0] - dv[1]) / 2 + 0.6 * avgDelta(0),
@@ -381,7 +408,56 @@ export class GameSim {
     return `${String(m).padStart(2, '0')}:${String(s).padStart(2, '0')}`;
   }
   snapshot(): ScoreSnapshot {
-    return { kills: [...this.kills], gold: [Math.round(this.gold[0]), Math.round(this.gold[1])], towers: [...this.towers], dragons: [[...this.dragons[0]], [...this.dragons[1]]], barons: [...this.barons], kda: [this.lines[0].map((l) => [l.k, l.d, l.a]), this.lines[1].map((l) => [l.k, l.d, l.a])] };
+    return { kills: [...this.kills], gold: [Math.round(this.gold[0]), Math.round(this.gold[1])], towers: [...this.towers], dragons: [[...this.dragons[0]], [...this.dragons[1]]], barons: [...this.barons], kda: [this.lines[0].map((l) => [l.k, l.d, l.a]), this.lines[1].map((l) => [l.k, l.d, l.a])], structures: this.structureSnapshot(), pits: this.pitSnapshot() };
+  }
+  structureSnapshot(): StructureState {
+    const st = this.structures;
+    return { towers: [[...st.towers[0]], [...st.towers[1]]], inhibs: [[...st.inhibs[0]], [...st.inhibs[1]]], nexusTowers: [...st.nexusTowers], nexus: [...st.nexus] };
+  }
+  pitSnapshot(): PitState {
+    const n = this.next;
+    const fin = (v: number) => Number.isFinite(v);
+    const elderFirst = fin(n.elder) && (!fin(n.dragon) || n.elder <= n.dragon);
+    const dragon: PitState['dragon'] = elderFirst ? { kind: 'elder', at: n.elder } : fin(n.dragon) ? { kind: 'dragon', at: n.dragon, ...(this.soulType ? { type: this.soulType } : {}) } : null;
+    const top = (['grubs', 'herald', 'baron'] as const).filter((k) => fin(n[k])).sort((a, b) => n[a] - n[b])[0];
+    return { dragon, baron: top ? { kind: top, at: n[top] } : null, atakhan: fin(n.atakhan) ? { at: n.atakhan } : null };
+  }
+
+  /**
+   * `side` destroys one enemy tower, in `lane` if it still has one standing, else in the lane pushed deepest.
+   * Bumps the tower total too. No randomness, so the simulation's dice stay untouched.
+   */
+  takeTower(side: Side, lane?: LaneKey): LaneKey | null {
+    if (this.towers[side] >= 9) return null;
+    const lost = this.structures.towers[(1 - side) as Side];
+    let i = lane ? LANE_KEYS.indexOf(lane) : -1;
+    if (i < 0 || lost[i] >= 3) {
+      // deepest lane that still has a tower; ties go mid, bot, top
+      i = -1;
+      for (const j of [1, 2, 0]) if (lost[j] < 3 && (i < 0 || lost[j] > lost[i])) i = j;
+      if (i < 0) return null;
+    }
+    lost[i]++;
+    this.towers[side]++;
+    return LANE_KEYS[i];
+  }
+
+  /** `side` destroys an enemy inhibitor in a lane whose three towers are down (taking the missing tower first if needed). */
+  takeInhib(side: Side) {
+    const opp = (1 - side) as Side;
+    const lost = this.structures.towers[opp];
+    const inh = this.structures.inhibs[opp];
+    let i = [1, 2, 0].find((j) => lost[j] >= 3 && !inh[j]) ?? -1;
+    if (i < 0) {
+      for (const j of [1, 2, 0]) if (!inh[j] && (i < 0 || lost[j] > lost[i])) i = j;
+      if (i < 0) return;
+      while (lost[i] < 3) {
+        lost[i]++;
+        if (this.towers[side] < 9) this.towers[side]++;
+      }
+    }
+    inh[i] = true;
+    this.inhibs[side]++;
   }
   log(e: Omit<GameEvent, 't' | 'score' | 'text'> & { text: string }) {
     const major = e.major ?? (e.kind === 'end' || (e.kind === 'objective' && (e.objective === 'baron' || e.objective === 'elder' || e.objective === 'atakhan')) || /FIRST BLOOD|ACE|SOUL|inhibitor/.test(e.text));
@@ -435,6 +511,18 @@ export class GameSim {
     return this.rng.shuffle([...arr]).slice(0, n);
   }
 
+  /** Champion lane matchup for side 0 in a lane (avg over its roles, -1..1; older drafts without matchups give 0). */
+  laneMatchup(roles: readonly number[]): number {
+    const m = this.input.draft.matchups;
+    if (!m) return 0;
+    return roles.reduce((a, i) => a + (m[i] ?? 0), 0) / roles.length;
+  }
+
+  /** Early lane edge from playstyles (lane bullies, weakside) for side 0, averaged over the lane's roles. */
+  styleLaneDiff(roles: readonly number[]): number {
+    return roles.reduce((a, i) => a + this.style[0].laneEarly[i] - this.style[1].laneEarly[i], 0) / roles.length;
+  }
+
   // ------------- events -------------
   /** Win probability for side 0 in a lane matchup. */
   laneProb(lane: (typeof LANES)[number]): number {
@@ -446,6 +534,8 @@ export class GameSim {
     if (lane.key === 'bot') x += DUO.toLogit * this.duoDiff('BOT-SUP');
     if (lane.key === 'top') x += 0.5 * DUO.toLogit * this.duoDiff('JNG-TOP');
     if (lane.key === 'mid') x += 0.5 * DUO.toLogit * this.duoDiff('JNG-MID');
+    x += MATCHUP.toLogit * this.laneMatchup(lane.roles);
+    x += earlyPhase(this.t) * this.styleLaneDiff(lane.roles);
     x += this.planEdge('lane');
     return sigmoid(x);
   }
@@ -455,6 +545,8 @@ export class GameSim {
     const lane = LANES[2];
     let x = SIM.playerDiffToLogit * this.statDiff([3, 4], (p) => 0.6 * p.rating.laning + 0.4 * p.rating.strength);
     x += DUO.toLogit * 1.4 * this.duoDiff('BOT-SUP');
+    x += MATCHUP.toLogit * this.laneMatchup([3, 4]);
+    x += earlyPhase(this.t) * this.styleLaneDiff([3, 4]);
     x += SIM.compToLogit * (this.comp(0).early - this.comp(1).early) / 3 + 0.3 * SIM.ratingToLogit * (this.power[0] - this.power[1]);
     x += this.planEdge('lane');
     const w: Side = this.rng.chance(sigmoid(x + 0.2 * this.rng.normal())) ? 0 : 1;
@@ -508,7 +600,8 @@ export class GameSim {
     const l = (1 - w) as Side;
     const lead = lane.roles[0];
     const aggr = this.p(w, lead).rating.aggression / 100;
-    if (this.rng.chance(SIM.soloKillBase * (0.6 + aggr) * (lane.key === 'bot' ? 1.3 : 1))) {
+    const styleKill = this.style[w].soloKillFor[lead] * this.style[l].soloKillAgainst[lead];
+    if (this.rng.chance(SIM.soloKillBase * (0.6 + aggr) * (lane.key === 'bot' ? 1.3 : 1) * styleKill)) {
       const killer = lane.roles.length > 1 && this.rng.chance(0.4) ? lane.roles[1] : lead;
       const victim = this.rng.pick(lane.roles);
       const solo = lane.roles.length === 1;
@@ -554,26 +647,31 @@ export class GameSim {
     if (this.p(side, 1).playstyle.includes('passive')) x -= TRAITS.passiveLogit * 2;
     x += TRAITS.poorVisionLogit * this.traitCount(opp, 'poor_vision');
     x += 0.5 * TRAITS.weakLaneLogit * this.traitCount(opp, 'weak_laner', lane.roles);
+    // playstyles: aggressive jungle + a laner who follows up, against weakside laners and vision control
+    x += earlyPhase(this.t) * this.style[side].gankEarly[lane.key] - this.style[opp].gankDefense[lane.key];
     x += side === 0 ? this.planEdge('gank') : -this.planEdge('gank');
     return sigmoid(x);
   }
 
   gank() {
     // a gank-pressure plan sends its jungler into the lanes far more often
-    const w0 = this.p(0, 1).rating.aggression + 30 + (this.hasPlan(0, 'gank') ? 60 : 0);
-    const w1 = this.p(1, 1).rating.aggression + 30 + (this.hasPlan(1, 'gank') ? 60 : 0);
+    const w0 = (this.p(0, 1).rating.aggression + 30) * this.style[0].gankRate + (this.hasPlan(0, 'gank') ? 60 : 0);
+    const w1 = (this.p(1, 1).rating.aggression + 30) * this.style[1].gankRate + (this.hasPlan(1, 'gank') ? 60 : 0);
     const side: Side = this.rng.next() < w0 / (w0 + w1) ? 0 : 1;
     const opp = (1 - side) as Side;
     // gank where the enemy is weakest relative to the ally
-    const lane = this.rng.weighted(LANES, (l) => 1 + Math.max(0, (side === 0 ? 1 : -1) * this.laneLead[l.key]) / 400 + (100 - this.p(opp, l.roles[0]).rating.laning) / 50);
+    // gank where the enemy is weakest relative to the ally, and where an ally laner follows up
+    const lane = this.rng.weighted(LANES, (l) => 1 + Math.max(0, (side === 0 ? 1 : -1) * this.laneLead[l.key]) / 400 + (100 - this.p(opp, l.roles[0]).rating.laning) / 50 + 2 * earlyPhase(this.t) * Math.max(0, this.style[side].gankEarly[l.key] - STYLE.aggroJungleGank));
     const p = this.gankProb(side, lane);
     const roll = this.rng.next();
     const target = this.rng.pick(lane.roles);
-    const dive = this.t > 9 * 60 && this.rng.chance(0.35);
+    const dive = this.t > 9 * 60 && this.rng.chance(this.style[side].diveShare);
     if (roll < p) {
       const killer = lane.roles.length > 1 ? this.rng.pick([1, ...lane.roles]) : this.rng.pick([1, lane.roles[0]]);
       const fb = this.kill(side, killer, target, [1, ...lane.roles]);
       let text = `${this.name(side, 1)} ${dive ? 'dives' : 'ganks'} ${lane.key}: ${this.name(opp, target)} dies to ${this.p(side, killer).handle}${fb}`;
+      const follow = earlyPhase(this.t) > 0.5 ? lane.roles.find((i) => this.p(side, i).playstyle.some((t) => t === 'aggressive' || t === 'lane_bully')) : undefined;
+      if (follow !== undefined && this.p(side, 1).playstyle.includes('aggressive')) text += ` (${this.p(side, follow).handle} had prio and followed up)`;
       if (lane.roles.length > 1 && this.rng.chance(0.3)) {
         const other = lane.roles.find((r) => r !== target)!;
         this.kill(side, killer, other, [1, ...lane.roles]);
@@ -616,6 +714,7 @@ export class GameSim {
     const targetLane = a.idx === 2 ? this.rng.pick(LANES.filter((l) => l.key !== 'mid')) : this.rng.pick(LANES.filter((l) => l.key !== 'bot'));
     let x = SIM.playerDiffToLogit * (this.p(a.side, a.idx).rating.impact - targetLane.roles.reduce((s, i) => s + this.p(opp, i).rating.vision * 0.5 + this.p(opp, i).rating.laning * 0.5, 0) / targetLane.roles.length + 8);
     x += 0.5 * SIM.ratingToLogit * (this.power[a.side] - this.power[opp]);
+    x += this.style[a.side].roam - 0.5 * this.style[opp].gankDefense[targetLane.key];
     const helpers = targetLane.roles;
     if (this.rng.chance(sigmoid(x))) {
       const victim = this.rng.pick(targetLane.roles);
@@ -639,8 +738,7 @@ export class GameSim {
     const lead = this.laneLead[lane];
     if (Math.abs(lead) < 900 || !this.rng.chance(0.4)) return;
     const side: Side = lead > 0 ? 0 : 1;
-    if (this.towers[side] >= 9) return;
-    this.towers[side]++;
+    if (!this.takeTower(side, lane)) return;
     this.addGold(side, SIM.towerGold);
     this.laneLead[lane] -= Math.sign(lead) * 600;
     this.log({ kind: 'tower', location: lane, actors: [], side, text: `${this.team(side)} take a ${lane} tower (${this.towers[side]} total)` });
@@ -748,8 +846,9 @@ export class GameSim {
     } else if (kind === 'herald') {
       this.heralds[w]++;
       this.addGold(w, SIM.objectiveGold.herald);
-      this.log({ kind: 'objective', objective: 'herald', location: 'baron', actors, side: w, text: `${fightText}${team} take Rift Herald and crash it into ${this.rng.pick(['mid', 'top', 'bot'])}${suffix}` });
-      if (this.towers[w] < 9) this.towers[w]++;
+      const crash = this.rng.pick<LaneKey>(['mid', 'top', 'bot']);
+      this.log({ kind: 'objective', objective: 'herald', location: 'baron', actors, side: w, text: `${fightText}${team} take Rift Herald and crash it into ${crash}${suffix}` });
+      this.takeTower(w, crash);
       this.next.herald = Infinity;
     } else if (kind === 'atakhan') {
       this.addGold(w, SIM.objectiveGold.atakhan);
@@ -782,8 +881,14 @@ export class GameSim {
     // can the support keep the carries alive against the enemy's divers?
     x += SIM.peelToLogit * (Math.max(-3, Math.min(3, this.peelMargin(0))) - Math.max(-3, Math.min(3, this.peelMargin(1))));
     x -= TRAITS.passiveLogit * this.traitDiff('passive');
+    x += this.styleFight(0) - this.styleFight(1);
     x += this.planEdge('fight');
     return sigmoid(x);
+  }
+  /** Teamfight logit from playstyles: teamfighters/engagers, early-game teams before ~20 min, carries/scaling late. */
+  styleFight(side: Side): number {
+    const st = this.style[side];
+    return st.teamfight + earlyPhase(this.t) * st.earlyFight + latePhase(this.t) * st.lateFight;
   }
 
   teamfight(loc?: LocationKey) {
@@ -856,7 +961,7 @@ export class GameSim {
   }
 
   pick() {
-    const side: Side = this.rng.chance(sigmoid(this.baseLogit() + SIM.playerDiffToLogit * this.statDiff([1, 4], (p) => p.rating.vision) - TRAITS.poorVisionLogit * this.traitDiff('poor_vision') + this.planEdge('pick'))) ? 0 : 1;
+    const side: Side = this.rng.chance(sigmoid(this.baseLogit() + SIM.playerDiffToLogit * this.statDiff([1, 4], (p) => p.rating.vision) - TRAITS.poorVisionLogit * this.traitDiff('poor_vision') + this.style[0].pick - this.style[1].pick + this.planEdge('pick'))) ? 0 : 1;
     const opp = (1 - side) as Side;
     const victim = this.rng.pick([0, 2, 3]);
     const by = this.rng.pick([1, 4, 2]);
@@ -884,13 +989,24 @@ export class GameSim {
       this.log({ kind: 'pick', location: this.rng.pick(['top', 'bot']), actors: [a, { side: opp, idx: by }], side: opp, text: `${this.name(a.side, a.idx)} is caught alone in the side lane by ${this.p(opp, by).handle}: the 1-3-1 backfires` });
       return true;
     }
+    // a vision-control team catches the split pusher
+    if (this.rng.chance(this.style[opp].splitCatch)) {
+      const by = this.rng.pick([1, 4, 2]);
+      this.kill(opp, by, a.idx, [by, 4]);
+      this.setTempo(opp, TEMPO.gank, 'pick');
+      this.log({ kind: 'pick', location: this.rng.pick(['topRiver', 'botRiver']), actors: [{ side: opp, idx: by }, a], side: opp, text: `${this.name(a.side, a.idx)} pushes too far without vision: ${this.name(opp, by)} catches the split push` });
+      return true;
+    }
     const c = this.comp(a.side).split;
-    const edge = a.side === 0 ? this.planEdge('split') : -this.planEdge('split');
-    if (!this.rng.chance(Math.max(0.1, Math.min(0.95, 0.35 + c / 60 + 0.4 * edge)))) return false;
+    // beats a weaker side laner, needs teammates to hold the 4v4; an executed 1-3-1 plan pushes harder
+    const edge = (this.p(a.side, a.idx).rating.laning - this.p(opp, a.idx).rating.laning) / 100;
+    const planEdge = a.side === 0 ? this.planEdge('split') : -this.planEdge('split');
+    if (!this.rng.chance(Math.max(0.1, Math.min(0.95, 0.35 + c / 60 + this.style[a.side].split + STYLE.splitLaning * edge + 0.4 * planEdge)))) return false;
+    const lane = this.rng.pick<LaneKey>(['top', 'bot']);
     const n = plan?.key === 'split' && plan.executed && this.rng.chance(0.4) ? 2 : 1;
-    for (let k = 0; k < n; k++) if (this.towers[a.side] < 9) this.towers[a.side]++;
+    for (let k = 0; k < n; k++) this.takeTower(a.side, lane);
     this.addGold(a.side, SIM.towerGold * n, a.idx);
-    this.log({ kind: 'tower', location: this.rng.pick(['top', 'bot']), actors: [a], side: a.side, text: `${this.name(a.side, a.idx)} split pushes a side lane (1-3-1) and takes ${n === 2 ? 'two towers' : 'a tower'}` });
+    this.log({ kind: 'tower', location: lane, actors: [a], side: a.side, text: `${this.name(a.side, a.idx)} split pushes a side lane (1-3-1) and takes ${n === 2 ? 'two towers' : 'a tower'}` });
     return true;
   }
 
@@ -898,10 +1014,10 @@ export class GameSim {
   push(side: Side, reason: 'baron' | 'elder' | 'ace' | 'fight') {
     const opp = (1 - side) as Side;
     const taken = reason === 'fight' ? this.rng.int(0, 1) : this.rng.int(1, 3);
-    for (let i = 0; i < taken && this.towers[side] < 9; i++) this.towers[side]++;
+    for (let i = 0; i < taken; i++) this.takeTower(side);
     if (taken) this.addGold(side, SIM.towerGold * taken);
     const strong = reason !== 'fight';
-    if (this.towers[side] >= 6 && strong && this.inhibs[side] < 3 && this.rng.chance(0.6)) this.inhibs[side]++;
+    if (this.towers[side] >= 6 && strong && this.inhibs[side] < 3 && this.rng.chance(0.6)) this.takeInhib(side);
     const endChance = this.t < 22 * 60 ? 0 : this.inhibs[side] >= 1 && strong ? (reason === 'elder' || reason === 'ace' ? 0.75 : 0.45) + 0.1 * this.inhibs[side] : 0;
     if (taken) this.log({ kind: 'tower', location: opp === 1 ? 'base1' : 'base0', actors: [0, 1, 2, 3, 4].map((idx) => ({ side, idx })), side, text: `${this.team(side)} push with ${reason === 'fight' ? 'the advantage' : reason}: ${taken} tower${taken > 1 ? 's' : ''}${this.inhibs[side] ? `, ${this.inhibs[side]} inhibitor${this.inhibs[side] > 1 ? 's' : ''} down` : ''}` });
     if (this.rng.chance(endChance)) this.end(side);
@@ -911,6 +1027,10 @@ export class GameSim {
     if (this.winner !== null) return;
     this.winner = side;
     this.t += 30;
+    const opp = (1 - side) as Side;
+    if (!this.structures.inhibs[opp].some(Boolean)) this.takeInhib(side);
+    this.structures.nexusTowers[opp] = 2;
+    this.structures.nexus[opp] = true;
     this.log({ kind: 'end', location: side === 0 ? 'base1' : 'base0', actors: [0, 1, 2, 3, 4].map((idx) => ({ side, idx })), side, text: `${this.team(side)} destroy the Nexus! (${this.kills[side]}-${this.kills[1 - side]} kills)` });
   }
 
@@ -974,10 +1094,11 @@ export class GameSim {
       if (this.t >= this.next.baron && this.rng.chance(min > 24 ? 0.75 : 0.45)) { this.resolveObjective('baron'); continue; }
       if (min < 14) {
         const r = this.rng.next();
+        const gankShare = Math.min(0.45, 0.35 * (this.style[0].gankRate + this.style[1].gankRate) / 2);
         // gank-pressure plans turn lane time into gank time
         const gankBoost = ([0, 1] as Side[]).reduce((a: number, s) => a + (this.hasPlan(s, 'gank') ? (this.plan[s]!.executed ? 0.12 : 0.06) : 0), 0);
         if (r < 0.5 - gankBoost) this.laneEvent();
-        else if (r < 0.85) this.gank();
+        else if (r < 0.5 + gankShare) this.gank();
         else if (!this.roam()) this.laneEvent();
       } else {
         const r = this.rng.next();

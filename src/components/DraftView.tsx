@@ -1,9 +1,22 @@
-import type { DraftResult } from '../lib/draft';
+import { PLANS, type DraftResult, type PlanEntry } from '../lib/draft';
 import { ATTR_KEYS } from '../lib/champions';
 import type { SeriesTeam } from '../lib/series';
 import { TEAM_COLOR } from './RiftMap';
 import { ChampIcon, RoleIcon, TIER_STYLE } from './atoms';
 
+const STATUS_LABEL: Record<Exclude<PlanEntry['status'], 'ok'>, string> = { banned: 'banned', taken: 'taken', dodged: 'dodged the counter' };
+
+/** Lane matchup chip: only shown when one side clearly wins the lane. */
+function MatchupChip({ m, vs }: { m?: number; vs?: string }) {
+  if (m === undefined || !vs || Math.abs(m) < 0.2) return null;
+  const strong = Math.abs(m) >= 0.45;
+  const good = m > 0;
+  return (
+    <span className={good ? 'text-emerald-400' : 'text-rose-400'} title={`Lane matchup vs ${vs}: ${m > 0 ? '+' : ''}${Math.round(m * 100)}`}>
+      {good ? (strong ? 'counters' : 'favoured vs') : strong ? 'countered by' : 'tough lane vs'} {vs}
+    </span>
+  );
+}
 
 export function DraftView({ draft, teams, fearless }: { draft: DraftResult; teams: [SeriesTeam, SeriesTeam]; fearless: boolean }) {
   return (
@@ -11,22 +24,36 @@ export function DraftView({ draft, teams, fearless }: { draft: DraftResult; team
       <div className="grid gap-3 md:grid-cols-2">
         {[0, 1].map((s) => {
           const report = draft.plans?.[s];
+          // bans that hit a pick the opponent's plan showed
+          const oppRead = new Set(draft.plans?.[1 - s]?.read ?? []);
+          const planLabel = report ? PLANS.find((p) => p.key === report.plan)?.label : undefined;
           return (
             <div key={s} className="card overflow-hidden p-0">
               <div className="flex items-center justify-between px-4 py-2.5" style={{ background: `linear-gradient(90deg, ${TEAM_COLOR[s]}33, transparent)` }}>
                 <span className="font-display text-xl font-bold uppercase tracking-wide" style={{ color: TEAM_COLOR[s] }}>
                   {teams[s].short} <span className="text-sm text-slate-400">· {s === 0 ? 'Blue' : 'Red'} side</span>
                 </span>
-                <span className="text-[11px] text-slate-400" title="Average of mastery × meta strength × composition fit">
+                {planLabel && (
+                  <span className="chip ml-2 mr-auto bg-white/[0.06] text-[10px] text-slate-300" title={report!.ai ? "The opponent's hidden draft strategy" : 'Your draft plan'}>
+                    {report!.ai ? 'Their plan' : 'Plan'}: <b className="ml-1 text-slate-100">{planLabel}</b>
+                    {report!.read.length > 0 && <span className="ml-1 text-orange-300">· {report!.read.length} read</span>}
+                  </span>
+                )}
+                <span className="text-[11px] text-slate-400" title="Average of mastery × meta strength × composition fit × lane matchup">
                   draft value <b className="text-slate-200">{(draft.value[s] * 100).toFixed(0)}</b>
                 </span>
               </div>
               <div className="space-y-3 p-3">
                 <div className="flex items-center gap-1.5">
                   <span className="label mr-1">Bans</span>
-                  {draft.bans[s].map((b) => (
-                    <ChampIcon key={b} name={b} size={26} dim />
-                  ))}
+                  {draft.bans[s].map((b) =>
+                    oppRead.has(b) ? (
+                      <ChampIcon key={b} name={b} size={26} dim ring="#fb923caa" title={`${b}: read from ${teams[1 - s].short}'s plan and banned`} />
+                    ) : (
+                      <ChampIcon key={b} name={b} size={26} dim />
+                    ),
+                  )}
+                  {oppRead.size > 0 && draft.bans[s].some((b) => oppRead.has(b)) && <span className="ml-1 text-[10px] text-orange-300">orange: read from their plan</span>}
                 </div>
                 <div className="space-y-1.5">
                   {draft.picks[s].map((pk) => {
@@ -47,7 +74,8 @@ export function DraftView({ draft, teams, fearless }: { draft: DraftResult; team
                             <span>{pk.games ? `${pk.games} games this year` : 'never played this year'}</span>
                             <span>mastery {Math.min(100, Math.round(pk.mastery * 100))}</span>
                             {pk.combo && <span className="text-hex-400">combo with {pk.combo.join(', ')}</span>}
-                            {entry && entry.status !== 'ok' && <span className="text-orange-400">planned {entry.planned} ({entry.status})</span>}
+                            <MatchupChip m={pk.matchup} vs={pk.vs} />
+                            {entry && entry.status !== 'ok' && <span className="text-orange-400">planned {entry.planned} ({STATUS_LABEL[entry.status]})</span>}
                           </div>
                         </div>
                         <div className="w-20" title="Pool exhaustion: share of the player's comfort pool that is banned, taken or fearless-locked">
