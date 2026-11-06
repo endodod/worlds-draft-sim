@@ -5,7 +5,7 @@ import { TournamentScreen, stagesOf } from './screens/TournamentScreen';
 import { SeriesScreen } from './screens/SeriesScreen';
 import { ResultsScreen } from './screens/ResultsScreen';
 import { pickOpponents, userSeriesTeam, type RunConfig } from './lib/run';
-import { runTournament, type Tournament, type UserPlans } from './lib/tournament';
+import { runTournament, type Tournament, type UserPlans, type UserStrategies } from './lib/tournament';
 import type { SeriesResult, SeriesTeam } from './lib/series';
 
 type Screen = { name: 'start' } | { name: 'draft' } | { name: 'tournament' } | { name: 'series'; s: SeriesResult; watch: boolean; back: 'tournament' | 'results' } | { name: 'results' };
@@ -30,6 +30,7 @@ export default function App() {
   const [cfg, setCfg] = useState<RunConfig | null>(null);
   const [field, setField] = useState<SeriesTeam[] | null>(null);
   const [plans, setPlans] = useState<UserPlans>({});
+  const [strategies, setStrategies] = useState<UserStrategies>({});
   const [tour, setTour] = useState<Tournament | null>(null);
   const [stageIdx, setStageIdx] = useState(0);
   const step = screen.name === 'start' ? 0 : screen.name === 'draft' ? 1 : screen.name === 'results' ? 3 : 2;
@@ -76,6 +77,7 @@ export default function App() {
               setCfg(c);
               setTour(null);
               setPlans({});
+              setStrategies({});
               setStageIdx(0);
               setScreen({ name: 'draft' });
             }}
@@ -111,13 +113,16 @@ export default function App() {
             s={screen.s}
             watch={screen.watch}
             initialPlans={plans[screen.s.id]}
-            onBack={(seriesPlans) => {
+            initialStrategies={strategies[screen.s.id]}
+            onBack={(seriesPlans, seriesStrategies) => {
               let t = tour;
-              // the user's draft plans change their series (and everything after it): re-run the tournament
+              // the user's draft and game plans change their series (and everything after it): re-run the tournament
               if (screen.watch && screen.s.teams.some((x) => x.isUser)) {
                 const np = { ...plans, [screen.s.id]: seriesPlans };
+                const ns = { ...strategies, [screen.s.id]: seriesStrategies };
                 setPlans(np);
-                t = runTournament(field, cfg.format, cfg.seed, cfg.fearless, np);
+                setStrategies(ns);
+                t = runTournament(field, cfg.format, cfg.seed, cfg.fearless, np, ns);
                 setTour(t);
               }
               // finishing a played series completes the stage it belongs to

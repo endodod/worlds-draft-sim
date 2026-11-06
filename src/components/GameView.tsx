@@ -3,6 +3,7 @@ import type { SeriesGame, SeriesTeam } from '../lib/series';
 import { deadAt, type GameEvent } from '../lib/game';
 import { GoldGraph, MAX_TOASTS, RiftMap, TEAM_COLOR } from './RiftMap';
 import { ChampIcon, RoleIcon, TIER_STYLE } from './atoms';
+import { PlanStrip } from './StrategyPicker';
 
 type Speed = 1 | 4 | 12;
 const DELAY: Record<Speed, number> = { 1: 1500, 4: 380, 12: 120 };
@@ -55,6 +56,13 @@ export function GameView({ game, teams, onFinished, onSkipSeries }: { game: Seri
   return (
     <div className="space-y-3">
       <Scorebar blue={blue} red={red} sc={sc} t={current.t} />
+      {game.result.strategies && (
+        <PlanStrip
+          plans={game.result.strategies}
+          labels={[blue.short, red.short]}
+          revealed={[0, 1].map((s) => done || ev.slice(0, idx + 1).some((e) => e.reveal === s)) as [boolean, boolean]}
+        />
+      )}
       <div className="flex flex-wrap items-center gap-2">
         <button className="btn-ghost" onClick={() => setPlaying((p) => !p)} disabled={done}>
           {playing && !done ? '❚❚ Pause' : '▶ Play'}

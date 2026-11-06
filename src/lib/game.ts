@@ -1,10 +1,14 @@
-import { DRAFT, DUO, FATIGUE, POOL, SIM, TEMPO, TRAITS } from '../config/balance';
+import { DRAFT, DUO, FATIGUE, POOL, SIM, STRATEGY, TEMPO, TRAITS } from '../config/balance';
 import type { DraftResult, CompScore } from './draft';
 import { championAttrs, championTags } from './champions';
 import { duoValue, teamDuos, type DuoKey, type DuoScore } from './duo';
 import type { RatedPlayer, Role } from './types';
 import { ROLES } from './types';
 import { sigmoid, type Rng } from './rng';
+import { STRATEGY_BY_KEY, splitter, type StrategyEval, type StrategyOutcome } from './strategy';
+
+/** What a game-plan modifier applies to. */
+export type PlanKind = 'lane' | 'gank' | 'objective' | 'fight' | 'pick' | 'split';
 
 export type Side = 0 | 1;
 export type LocationKey =
@@ -57,6 +61,8 @@ export interface GameEvent {
   major?: boolean;
   /** players who died in this event */
   deaths?: Actor[];
+  /** this event calls the outcome of that side's game plan */
+  reveal?: Side;
 }
 
 /** Approximate respawn timer (seconds) for a death at game time t: ~10 s early, ~60 s at 40 min. */
@@ -101,6 +107,8 @@ export interface GameResult {
   final: ScoreSnapshot & { grubs: [number, number]; heralds: [number, number]; elders: [number, number]; inhibs: [number, number] };
   lines: [PlayerLine[], PlayerLine[]];
   conditions: [PlayerCondition[], PlayerCondition[]];
+  /** each side's game plan and whether it came together */
+  strategies?: [StrategyOutcome, StrategyOutcome];
 }
 
 export interface GameInput {
@@ -108,6 +116,8 @@ export interface GameInput {
   draft: DraftResult;
   year: number;
   context?: GameContext;
+  /** game plans chosen after the draft (none: no plan effects) */
+  strategies?: [StrategyEval, StrategyEval];
 }
 
 const LANES: { key: 'top' | 'mid' | 'bot'; roles: number[] }[] = [
@@ -148,6 +158,9 @@ export class GameSim {
   /** last tempo swing: who got it, when, how big */
   tempo: { side: Side; t: number; mag: number; why: string } | null = null;
   pendingCracks: Actor[] = [];
+  /** game plans, with the success roll made at the start of the game */
+  plan: [StrategyOutcome | null, StrategyOutcome | null] = [null, null];
+  planRevealed: [boolean, boolean] = [false, false];
 
   constructor(public input: GameInput, public rng: Rng) {
     this.map = SIM.map(input.year);
@@ -166,6 +179,93 @@ export class GameSim {
       input.teams[0].rating + this.form[0] + DRAFT.draftValueToRating * (dv[0] - dv[1]) / 2 + 0.6 * avgDelta(0),
       input.teams[1].rating + this.form[1] + DRAFT.draftValueToRating * (dv[1] - dv[0]) / 2 + 0.6 * avgDelta(1),
     ];
+    if (input.strategies) this.plan = input.strategies.map((e) => ({ ...e, executed: rng.chance(e.success) })) as [StrategyOutcome, StrategyOutcome];
+  }
+
+  /**
+   * Logit a side's game plan adds to one kind of event right now (+ helps that side).
+   * Executed plans pay off in their phase (scaled by effectiveness), failed ones cost a share of it,
+   * and every plan has a fixed trade-off outside its phase. An executed reactive plan damps the enemy plan's payoff.
+   */
+  planLogit(side: Side, kind: PlanKind): number {
+    const o = this.plan[side];
+    if (!o) return 0;
+    const M = STRATEGY.maxLogit * o.effectiveness;
+    const T = STRATEGY.tradeoff;
+    const fail = -STRATEGY.failCost * M;
+    const ok = o.executed;
+    const ph = this.t < 14 * 60 ? 'early' : this.t < 27 * 60 ? 'mid' : 'late';
+    let v = 0;
+    switch (o.key) {
+      case 'gank':
+        if (ph === 'early') v = kind === 'fight' || kind === 'split' ? 0 : ok ? M : fail;
+        else if (ph === 'mid') v = ok ? 0.3 * M : 0;
+        else v = -T;
+        break;
+      case 'scaling':
+        if (ph === 'early') v = kind === 'lane' || kind === 'gank' || kind === 'objective' ? -T + (ok ? 0 : fail) : 0;
+        else if (ph === 'mid') v = ok ? 0.3 * M : 0;
+        else v = ok ? M : 0.2 * M;
+        break;
+      case 'split':
+        if (ph === 'early') v = 0;
+        else if (kind === 'split') v = ok ? 1.5 * M : fail;
+        else if (kind === 'fight') v = ok ? 0.4 * M : fail;
+        else if (kind === 'objective') v = ok ? 0.3 * M : 0;
+        else if (kind === 'pick') v = ok ? 0 : fail;
+        break;
+      case 'teamfight':
+        if (ph === 'early') v = kind === 'lane' ? -0.5 * T : 0;
+        else if (kind === 'fight' || kind === 'objective') v = ok ? M : fail;
+        else if (kind === 'split') v = -T;
+        break;
+      case 'pick':
+        if (ph === 'early') v = 0;
+        else if (kind === 'pick') v = ok ? 1.3 * M : fail;
+        else if (kind === 'fight') v = ok ? 0.3 * M : 0;
+        break;
+      case 'reactive':
+        if (ph !== 'early' && (kind === 'fight' || kind === 'objective')) v = ok ? 0.25 * M : -0.15 * M;
+        break;
+    }
+    const enemy = this.plan[(1 - side) as Side];
+    if (o.key !== 'reactive' && enemy?.key === 'reactive' && enemy.executed && v > 0) v *= STRATEGY.reactiveDamp;
+    return v;
+  }
+  /** plan logit difference, + favours side 0 */
+  planEdge(kind: PlanKind): number {
+    return this.planLogit(0, kind) - this.planLogit(1, kind);
+  }
+  hasPlan(side: Side, key: StrategyOutcome['key']): boolean {
+    return this.plan[side]?.key === key;
+  }
+
+  planText(side: Side): string {
+    const o = this.plan[side]!;
+    const team = this.team(side);
+    const ok = o.executed;
+    const enemy = this.plan[(1 - side) as Side];
+    switch (o.key) {
+      case 'gank':
+        return ok ? `${team}'s early pressure is working: ${this.name(side, 1)} has the map under control` : `${team}'s gank plan stalls: ${this.p(side, 1).handle}'s ganks are scouted and the lanes lose priority`;
+      case 'scaling':
+        return ok ? `${team} reach their power spike: ${this.name(side, 3)} is online` : `${team} fell too far behind to scale: the late-game plan is in trouble`;
+      case 'split': {
+        const i = this.splitterOf(side);
+        return ok ? `${team}'s 1-3-1 pulls the map apart: ${this.name(side, i)} draws two players to the side lane` : `${team}'s split push isn't working: ${this.p(side, i).handle} can't win the side lane`;
+      }
+      case 'teamfight':
+        return ok ? `${team} are grouped and winning every 5v5 setup` : `${team} can't find the 5v5 they want`;
+      case 'pick':
+        return ok ? `${team} own the fog: ${this.p(side, 4).handle}'s vision sets up the picks` : `${team} can't find picks: the enemy keeps vision`;
+      case 'reactive':
+        return ok
+          ? `${team} read the enemy plan${enemy && enemy.key !== 'reactive' ? `: ${this.team((1 - side) as Side)}'s ${STRATEGY_BY_KEY[enemy.key].label.toLowerCase()} is shut down` : ''}`
+          : `${team} are a step behind: playing reactive without a clear read`;
+    }
+  }
+  splitterOf(side: Side): number {
+    return splitter(this.input.teams[side].players, [0, 1, 2, 3, 4].map((i) => this.champ(side, i)));
   }
 
   /**
@@ -346,6 +446,7 @@ export class GameSim {
     if (lane.key === 'bot') x += DUO.toLogit * this.duoDiff('BOT-SUP');
     if (lane.key === 'top') x += 0.5 * DUO.toLogit * this.duoDiff('JNG-TOP');
     if (lane.key === 'mid') x += 0.5 * DUO.toLogit * this.duoDiff('JNG-MID');
+    x += this.planEdge('lane');
     return sigmoid(x);
   }
 
@@ -355,6 +456,7 @@ export class GameSim {
     let x = SIM.playerDiffToLogit * this.statDiff([3, 4], (p) => 0.6 * p.rating.laning + 0.4 * p.rating.strength);
     x += DUO.toLogit * 1.4 * this.duoDiff('BOT-SUP');
     x += SIM.compToLogit * (this.comp(0).early - this.comp(1).early) / 3 + 0.3 * SIM.ratingToLogit * (this.power[0] - this.power[1]);
+    x += this.planEdge('lane');
     const w: Side = this.rng.chance(sigmoid(x + 0.2 * this.rng.normal())) ? 0 : 1;
     const l = (1 - w) as Side;
     const duoW = this.duo(w, 'BOT-SUP');
@@ -425,7 +527,7 @@ export class GameSim {
 
   scuttle() {
     let x = SIM.playerDiffToLogit * (this.statDiff([1], (p) => p.rating.strength) + 0.5 * this.statDiff([2, 4], (p) => p.rating.laning));
-    x += this.baseLogit();
+    x += this.baseLogit() + 0.5 * this.planEdge('gank');
     const w: Side = this.rng.chance(sigmoid(x)) ? 0 : 1;
     const loc = this.rng.chance(0.5) ? 'scuttleTop' : 'scuttleBot';
     if (this.rng.chance(0.25)) {
@@ -452,12 +554,14 @@ export class GameSim {
     if (this.p(side, 1).playstyle.includes('passive')) x -= TRAITS.passiveLogit * 2;
     x += TRAITS.poorVisionLogit * this.traitCount(opp, 'poor_vision');
     x += 0.5 * TRAITS.weakLaneLogit * this.traitCount(opp, 'weak_laner', lane.roles);
+    x += side === 0 ? this.planEdge('gank') : -this.planEdge('gank');
     return sigmoid(x);
   }
 
   gank() {
-    const w0 = this.p(0, 1).rating.aggression + 30;
-    const w1 = this.p(1, 1).rating.aggression + 30;
+    // a gank-pressure plan sends its jungler into the lanes far more often
+    const w0 = this.p(0, 1).rating.aggression + 30 + (this.hasPlan(0, 'gank') ? 60 : 0);
+    const w1 = this.p(1, 1).rating.aggression + 30 + (this.hasPlan(1, 'gank') ? 60 : 0);
     const side: Side = this.rng.next() < w0 / (w0 + w1) ? 0 : 1;
     const opp = (1 - side) as Side;
     // gank where the enemy is weakest relative to the ally
@@ -564,7 +668,7 @@ export class GameSim {
     x += SIM.compToLogit * this.engageDiff() * 0.3 + SIM.compToLogit * this.phaseComp();
     // junglers whose teams control objectives all year
     x += 0.25 * ((this.p(0, 1).playstyle.includes('objective_control') ? 1 : 0) - (this.p(1, 1).playstyle.includes('objective_control') ? 1 : 0));
-    x += this.tempoLogit();
+    x += this.tempoLogit() + this.planEdge('objective');
     return sigmoid(x);
   }
   callerBonus(side: Side): number {
@@ -678,6 +782,7 @@ export class GameSim {
     // can the support keep the carries alive against the enemy's divers?
     x += SIM.peelToLogit * (Math.max(-3, Math.min(3, this.peelMargin(0))) - Math.max(-3, Math.min(3, this.peelMargin(1))));
     x -= TRAITS.passiveLogit * this.traitDiff('passive');
+    x += this.planEdge('fight');
     return sigmoid(x);
   }
 
@@ -751,7 +856,7 @@ export class GameSim {
   }
 
   pick() {
-    const side: Side = this.rng.chance(sigmoid(this.baseLogit() + SIM.playerDiffToLogit * this.statDiff([1, 4], (p) => p.rating.vision) - TRAITS.poorVisionLogit * this.traitDiff('poor_vision'))) ? 0 : 1;
+    const side: Side = this.rng.chance(sigmoid(this.baseLogit() + SIM.playerDiffToLogit * this.statDiff([1, 4], (p) => p.rating.vision) - TRAITS.poorVisionLogit * this.traitDiff('poor_vision') + this.planEdge('pick'))) ? 0 : 1;
     const opp = (1 - side) as Side;
     const victim = this.rng.pick([0, 2, 3]);
     const by = this.rng.pick([1, 4, 2]);
@@ -762,14 +867,30 @@ export class GameSim {
 
   splitPush() {
     const cands: Actor[] = [];
-    for (const side of [0, 1] as Side[]) this.input.teams[side].players.forEach((p, i) => p.playstyle.includes('splitpusher') && cands.push({ side, idx: i }));
+    for (const side of [0, 1] as Side[]) {
+      // a split-push plan always has its designated side laner out there
+      const planned = this.hasPlan(side, 'split') ? this.splitterOf(side) : -1;
+      this.input.teams[side].players.forEach((p, i) => (p.playstyle.includes('splitpusher') || i === planned) && cands.push({ side, idx: i }));
+    }
     if (!cands.length) return false;
     const a = this.rng.pick(cands);
+    const opp = (1 - a.side) as Side;
+    const plan = this.plan[a.side];
+    // a failing 1-3-1 gets its split pusher caught
+    if (plan?.key === 'split' && !plan.executed && this.rng.chance(0.35)) {
+      const by = this.rng.pick([1, 2, 4]);
+      this.kill(opp, by, a.idx, [by, 1]);
+      this.setTempo(opp, TEMPO.gank, 'caught split pusher');
+      this.log({ kind: 'pick', location: this.rng.pick(['top', 'bot']), actors: [a, { side: opp, idx: by }], side: opp, text: `${this.name(a.side, a.idx)} is caught alone in the side lane by ${this.p(opp, by).handle}: the 1-3-1 backfires` });
+      return true;
+    }
     const c = this.comp(a.side).split;
-    if (!this.rng.chance(0.35 + c / 60)) return false;
-    if (this.towers[a.side] < 9) this.towers[a.side]++;
-    this.addGold(a.side, SIM.towerGold, a.idx);
-    this.log({ kind: 'tower', location: this.rng.pick(['top', 'bot']), actors: [a], side: a.side, text: `${this.name(a.side, a.idx)} split pushes a side lane (1-3-1) and takes a tower` });
+    const edge = a.side === 0 ? this.planEdge('split') : -this.planEdge('split');
+    if (!this.rng.chance(Math.max(0.1, Math.min(0.95, 0.35 + c / 60 + 0.4 * edge)))) return false;
+    const n = plan?.key === 'split' && plan.executed && this.rng.chance(0.4) ? 2 : 1;
+    for (let k = 0; k < n; k++) if (this.towers[a.side] < 9) this.towers[a.side]++;
+    this.addGold(a.side, SIM.towerGold * n, a.idx);
+    this.log({ kind: 'tower', location: this.rng.pick(['top', 'bot']), actors: [a], side: a.side, text: `${this.name(a.side, a.idx)} split pushes a side lane (1-3-1) and takes ${n === 2 ? 'two towers' : 'a tower'}` });
     return true;
   }
 
@@ -810,6 +931,11 @@ export class GameSim {
       const nervy = this.conditions[s].map((c, i) => ({ c, i })).filter((x) => x.c.cracked);
       if (nervy.length) this.log({ kind: 'info', location: s === 0 ? 'base0' : 'base1', actors: nervy.map((x) => ({ side: s, idx: x.i })), side: (1 - s) as Side, major: true, text: `Nerves: ${nervy.map((x) => this.p(s, x.i).handle).join(', ')} ${nervy.length === 1 ? 'is' : 'are'} visibly shaken with elimination on the line` });
     }
+    for (const s of [0, 1] as Side[]) {
+      const o = this.plan[s];
+      if (!o) continue;
+      this.log({ kind: 'info', location: s === 0 ? 'base0' : 'base1', actors: o.keyPlayers.map((idx) => ({ side: s, idx })), side: s, major: true, text: `${this.team(s)} game plan: ${STRATEGY_BY_KEY[o.key].label} (${Math.round(o.success * 100)}% to come together, effectiveness ${Math.round(o.effectiveness * 100)})` });
+    }
     this.t = 90;
     if (this.rng.chance(0.12)) {
       const side: Side = this.rng.chance(sigmoid(this.baseLogit())) ? 0 : 1;
@@ -828,6 +954,12 @@ export class GameSim {
       this.gold[1] += passive;
       this.recordGold();
       const min = this.t / 60;
+      for (const s of [0, 1] as Side[]) {
+        const o = this.plan[s];
+        if (!o || this.planRevealed[s] || min < STRATEGY.reveal[o.key]) continue;
+        this.planRevealed[s] = true;
+        this.log({ kind: 'info', location: s === 0 ? 'base0' : 'base1', actors: o.keyPlayers.map((idx) => ({ side: s, idx })), side: o.executed ? s : ((1 - s) as Side), major: true, reveal: s, text: this.planText(s) });
+      }
       if (!scuttled && this.t >= 210) {
         scuttled = true;
         this.scuttle();
@@ -842,18 +974,22 @@ export class GameSim {
       if (this.t >= this.next.baron && this.rng.chance(min > 24 ? 0.75 : 0.45)) { this.resolveObjective('baron'); continue; }
       if (min < 14) {
         const r = this.rng.next();
-        if (r < 0.5) this.laneEvent();
+        // gank-pressure plans turn lane time into gank time
+        const gankBoost = ([0, 1] as Side[]).reduce((a: number, s) => a + (this.hasPlan(s, 'gank') ? (this.plan[s]!.executed ? 0.12 : 0.06) : 0), 0);
+        if (r < 0.5 - gankBoost) this.laneEvent();
         else if (r < 0.85) this.gank();
         else if (!this.roam()) this.laneEvent();
       } else {
         const r = this.rng.next();
+        const pickBoost = ([0, 1] as Side[]).filter((s) => this.hasPlan(s, 'pick')).length * 0.06;
+        const splitBoost = ([0, 1] as Side[]).filter((s) => this.hasPlan(s, 'split')).length * 0.08;
         if (this.pendingCracks.length && this.rng.chance(0.35)) this.crackEvent();
         else if (this.mistakeEvent()) {
           /* unforced throw */
         }
         else if (r < 0.45) this.teamfight();
-        else if (r < 0.7) this.pick();
-        else if (r < 0.85 && this.splitPush()) {
+        else if (r < 0.7 + pickBoost) this.pick();
+        else if (r < Math.min(0.97, 0.85 + pickBoost + splitBoost) && this.splitPush()) {
           /* split */
         } else this.laneEvent();
       }
@@ -873,6 +1009,7 @@ export class GameSim {
       final: { ...this.snapshot(), grubs: this.grubs, heralds: this.heralds, elders: this.elders, inhibs: this.inhibs },
       lines: this.lines,
       conditions: this.conditions,
+      ...(this.plan[0] && this.plan[1] ? { strategies: [this.plan[0], this.plan[1]] as [StrategyOutcome, StrategyOutcome] } : {}),
     };
   }
 }

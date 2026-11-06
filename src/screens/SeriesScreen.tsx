@@ -3,6 +3,8 @@ import { DraftView } from '../components/DraftView';
 import { GameView, fmt } from '../components/GameView';
 import { TEAM_COLOR } from '../components/RiftMap';
 import { ChampIcon } from '../components/atoms';
+import { StrategyPicker } from '../components/StrategyPicker';
+import type { StrategyKey } from '../lib/strategy';
 import { PLANS, type DraftPlan } from '../lib/draft';
 import { simulateSeries, type SeriesResult, type SeriesTeam } from '../lib/series';
 
@@ -85,19 +87,35 @@ function SeriesHeader({ s, score, onBack }: { s: SeriesResult; score: number[]; 
  * In the user's own series the user chooses a draft plan before each game; the series is re-simulated
  * from those plans (earlier games stay identical, the seed is per game).
  */
-export function SeriesScreen({ s: initial, watch, initialPlans = [], onBack }: { s: SeriesResult; watch: boolean; initialPlans?: (DraftPlan | undefined)[]; onBack: (plans: (DraftPlan | undefined)[]) => void }) {
+export function SeriesScreen({
+  s: initial,
+  watch,
+  initialPlans = [],
+  initialStrategies = [],
+  onBack,
+}: {
+  s: SeriesResult;
+  watch: boolean;
+  initialPlans?: (DraftPlan | undefined)[];
+  initialStrategies?: (StrategyKey | undefined)[];
+  onBack: (plans: (DraftPlan | undefined)[], strategies: (StrategyKey | undefined)[]) => void;
+}) {
   const userIdx = initial.teams.findIndex((t) => t.isUser);
   const interactive = watch && userIdx >= 0;
   const [plans, setPlans] = useState<(DraftPlan | undefined)[]>(initialPlans);
-  const s = useMemo(() => (interactive ? simulateSeries(initial.id, initial.stage, initial.teams, initial.bestOf, initial.seed, initial.fearless, plans) : initial), [initial, interactive, plans]);
+  const [strategies, setStrategies] = useState<(StrategyKey | undefined)[]>(initialStrategies);
+  const s = useMemo(
+    () => (interactive ? simulateSeries(initial.id, initial.stage, initial.teams, initial.bestOf, initial.seed, initial.fearless, plans, strategies) : initial),
+    [initial, interactive, plans, strategies],
+  );
   const [gameIdx, setGameIdx] = useState(watch ? 0 : s.games.length);
-  const [phase, setPhase] = useState<'plan' | 'draft' | 'game'>(interactive ? 'plan' : 'draft');
+  const [phase, setPhase] = useState<'plan' | 'draft' | 'strategy' | 'game'>(interactive ? 'plan' : 'draft');
   const finishedGames = s.games.slice(0, gameIdx);
   const score = [0, 1].map((i) => finishedGames.filter((g) => g.winnerTeam === i).length);
   const over = gameIdx >= s.games.length;
   const g = s.games[gameIdx];
   const ordered = g ? ([s.teams[g.blue], s.teams[1 - g.blue]] as [SeriesTeam, SeriesTeam]) : null;
-  const back = () => onBack(plans);
+  const back = () => onBack(plans, strategies);
   const next = (i: number) => {
     setGameIdx(i);
     setPhase(interactive ? 'plan' : 'draft');
@@ -110,9 +128,9 @@ export function SeriesScreen({ s: initial, watch, initialPlans = [], onBack }: {
       {!over && ordered && (
         <>
           <div className="flex items-center gap-2">
-            {['plan', 'draft', 'game'].filter((p) => interactive || p !== 'plan').map((p, i) => (
+            {['plan', 'draft', 'strategy', 'game'].filter((p) => interactive || (p !== 'plan' && p !== 'strategy')).map((p, i) => (
               <span key={p} className={`chip ${phase === p ? 'bg-gold-500/20 text-gold-300' : 'bg-white/[0.04] text-slate-500'}`}>
-                {i + 1}. {p === 'plan' ? 'Draft' : p === 'draft' ? 'Pick & ban' : 'Live game'}
+                {i + 1}. {p === 'plan' ? 'Draft' : p === 'draft' ? 'Pick & ban' : p === 'strategy' ? 'Game plan' : 'Live game'}
               </span>
             ))}
             <span className="ml-auto text-sm text-slate-400">Game {gameIdx + 1}</span>
@@ -124,6 +142,8 @@ export function SeriesScreen({ s: initial, watch, initialPlans = [], onBack }: {
                 const np = [...plans];
                 np[gameIdx] = p;
                 setPlans(np);
+                // a new draft means a new game plan
+                if (strategies[gameIdx]) setStrategies(strategies.map((x, i) => (i === gameIdx ? undefined : x)));
                 setPhase('draft');
               }}
             />
@@ -132,9 +152,15 @@ export function SeriesScreen({ s: initial, watch, initialPlans = [], onBack }: {
             <div className="space-y-3">
               <DraftView draft={g.draft} teams={ordered} fearless={s.fearless && s.bestOf > 1} />
               <div className="flex flex-wrap gap-2">
-                <button className="btn-primary" onClick={() => setPhase('game')}>
-                  ▶ Start game {gameIdx + 1}
-                </button>
+                {interactive && !strategies[gameIdx] ? (
+                  <button className="btn-primary" onClick={() => setPhase('strategy')}>
+                    Choose game plan →
+                  </button>
+                ) : (
+                  <button className="btn-primary" onClick={() => setPhase('game')}>
+                    ▶ Start game {gameIdx + 1}
+                  </button>
+                )}
                 <button className="btn-ghost" onClick={() => next(gameIdx + 1)}>
                   Skip game
                 </button>
@@ -144,7 +170,21 @@ export function SeriesScreen({ s: initial, watch, initialPlans = [], onBack }: {
               </div>
             </div>
           )}
-          {phase === 'game' && <GameView key={gameIdx + '|' + (plans[gameIdx] ?? 'ai')} game={g} teams={ordered} onFinished={() => next(gameIdx + 1)} onSkipSeries={() => setGameIdx(s.games.length)} />}
+          {phase === 'strategy' && (
+            <StrategyPicker
+              game={gameIdx + 1}
+              draft={g.draft}
+              teams={ordered}
+              userSide={ordered[0].isUser ? 0 : 1}
+              onPick={(k) => {
+                const ns = [...strategies];
+                ns[gameIdx] = k;
+                setStrategies(ns);
+                setPhase('game');
+              }}
+            />
+          )}
+          {phase === 'game' && <GameView key={gameIdx + '|' + (plans[gameIdx] ?? 'ai') + '|' + (strategies[gameIdx] ?? 'ai')} game={g} teams={ordered} onFinished={() => next(gameIdx + 1)} onSkipSeries={() => setGameIdx(s.games.length)} />}
         </>
       )}
 

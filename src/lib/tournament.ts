@@ -2,9 +2,12 @@ import { TOURNAMENT } from '../config/balance';
 import { makeRng } from './rng';
 import { simulateSeries, type SeriesResult, type SeriesTeam } from './series';
 import type { DraftPlan } from './draft';
+import type { StrategyKey } from './strategy';
 
 /** seriesId -> the user's draft plan per game */
 export type UserPlans = Record<string, (DraftPlan | undefined)[]>;
+/** seriesId -> the user's game plan (strategy after the draft) per game */
+export type UserStrategies = Record<string, (StrategyKey | undefined)[]>;
 
 export type Format = 'swiss' | 'groups';
 
@@ -53,8 +56,8 @@ export function pairWithoutRematch(ids: string[], played: Set<string>): [string,
 
 const byId = (teams: SeriesTeam[]) => new Map(teams.map((t) => [t.id, t]));
 
-export function runTournament(teams: SeriesTeam[], format: Format, seed: string, fearless: boolean, plans: UserPlans = {}): Tournament {
-  const sim = (id: string, stage: string, pair: [SeriesTeam, SeriesTeam], bo: number) => simulateSeries(id, stage, pair, bo, seed, fearless, plans[id]);
+export function runTournament(teams: SeriesTeam[], format: Format, seed: string, fearless: boolean, plans: UserPlans = {}, strategies: UserStrategies = {}): Tournament {
+  const sim = (id: string, stage: string, pair: [SeriesTeam, SeriesTeam], bo: number) => simulateSeries(id, stage, pair, bo, seed, fearless, plans[id], strategies[id]);
   const user = teams.find((t) => t.isUser)!;
   const rng = makeRng(`${seed}|draw`);
   const map = byId(teams);

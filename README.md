@@ -15,7 +15,7 @@ npm run build      # type-check + production build into dist/
 
 1. **Start**: pick a seed (or leave it random), a format (modern Swiss or classic groups), fearless on/off and the range of draftable seasons.
 2. **Draft (5 rounds)**: each round shows 3 random Worlds rosters (team + year, never repeated in a run) on a role-aligned board: every role starts at the same height in all three rosters, and rows for roles you already filled collapse to a slim line. "Your team" expands to show your picks in one row of narrow cards, one under each role (the locked-roster overview uses the same row). You get **3 rerolls per run** to swap the three offered rosters for new ones (rerolled-away rosters never come back and never appear as opponents); after a pick or reroll the page scrolls to the top, the old board fades out behind a short loading popup ("Faker locked in · loading round 2 of 5…" / "Reloading rosters") and the new rosters deal in card by card. When a roster used two players in one role (a sub), the cell shows a switch between them with a "2 players" indicator above the card (the other rosters in that row keep the same space, so cards stay aligned). Pick exactly one player for a role you haven't filled. Players in filled roles are greyed out. A roster with no eligible player is rerolled. The team rating, every synergy modifier and a radar chart (early game, teamfight, macro, pool depth, shotcalling, experience) update after each pick.
-3. **Tournament**: 15 real historical rosters at their real strength, never ones you were offered during the draft. Swiss rounds are Bo1, and matches where advancement or elimination is on the line are Bo3. Quarterfinals, semifinals and the final are Bo5. Watch your series game by game or skip to the end of a game or series. "Sim Swiss stage" (or "Sim group stage") simulates every remaining group round at once, your own matches included with the AI draft, and shows a summary: your record and matches, the 8 qualified teams and the biggest upsets. Before each of your games you choose a **draft**: Aggressive, Medium or Safe (below), then see the pick/ban and watch the game live at 1×, 4× or 12× with a key-events or full log.
+3. **Tournament**: 15 real historical rosters at their real strength, never ones you were offered during the draft. Swiss rounds are Bo1, and matches where advancement or elimination is on the line are Bo3. Quarterfinals, semifinals and the final are Bo5. Watch your series game by game or skip to the end of a game or series. "Sim Swiss stage" (or "Sim group stage") simulates every remaining group round at once, your own matches included with the AI draft, and shows a summary: your record and matches, the 8 qualified teams and the biggest upsets. Before each of your games you choose a **draft**: Aggressive, Medium or Safe (below), then see the pick/ban, choose a **game plan** for the comp you drafted (below) and watch the game live at 1×, 4× or 12× with a key-events or full log.
 4. **Results**: placement, MVP, series history and a "share seed" link.
 
 **Determinism.** All randomness comes from a seeded PRNG (`src/lib/rng.ts`, mulberry32 with string hashing). Draft offers derive from `seed + round + picks so far + rerolls used`, and every game from `seed + series id + game number`. The same seed and the same picks replay the exact same run, independent of playback speed.
@@ -29,6 +29,21 @@ npm run build      # type-check + production build into dist/
 | Safe | pocket picks (1–2 games that year) or the tail of the pool | 6% |
 
 Risk is scaled by how meta the champion is (`× (0.7 + 0.6·meta)`). A planned pick the opponent reads is banned first. A banned (or stolen) planned pick is replaced by the player's next champion from their own pool that year, in line with the plan: Aggressive takes the next-best champion, Medium the next comfort pick (3+ games), Safe the next pocket pick. Champions a teammate still plans to play are skipped. Only when a player's real pool is used up (bans plus fearless) do they fall back to the year's meta (off-pool) and then the hidden default pool. So a greedy plan costs you your very best champions to bans, not random picks. You only choose the plan; picks, bans and replacements happen automatically. Simulating a stage without playing uses the AI draft. Your plans are part of the run: the series and everything after it are re-simulated from them, deterministically.
+
+### Game plans (after the draft)
+
+After pick & ban you choose how your team plays the game. Every plan shows a **success rate** (will your players pull it off against this enemy, mostly from traits and stats) and an **effectiveness** (how much it pays off with the champions you drafted, scaled by the players on them), with the factors behind both. A scouting card shows the enemy's likely plan; AI teams choose the plan with the best expected payoff (success × effectiveness) without seeing yours. Logic in `src/lib/strategy.ts`, numbers in `STRATEGY` in `src/config/balance.ts`.
+
+| Plan | Success comes from | Effectiveness comes from | In game |
+|---|---|---|---|
+| Heavy gank pressure | jungler aggression/impact, `aggressive` (+ bonus on an early champion like Lee Sin), early laners, lane bullies, roamers, jungle links; minus enemy vision and early comp | comp early power, the jungler's champion, weak enemy laners, an enemy that needs to scale | many more ganks, lane/gank/early objective edge; falls off late |
+| Scale & protect | laning, waveclear, peel, weakside/enabler players, experience; minus enemy early comp and aggressive jungler | comp late power, a hyper-carry ADC (Zeri, Jinx, …) scaled by the bot laner's strength and `carry`, an enchanter support (Lulu, …) protecting it, a late-game mid | gives up early lanes, big late-game edge |
+| 1-3-1 split push | `splitpusher` on a duelist, 1v1 strength vs the opposing laner, waveclear of the other four, one shotcaller; minus enemy engage | the split champion and comp side-lane pressure, teamfighters holding the 4v4 | more and bigger split pushes, fight edge from the pressure; a failing 1-3-1 gets its split pusher caught |
+| Group & teamfight | teamfight ratings, teamfighters, engagers, one shotcaller; minus enemy poke and split | engage + peel, mid/late fight power, better 5v5 comp | mid/late fight and objective edge |
+| Vision & picks | jungle/support vision, vision control, roamers; minus enemy vision, plus mistake-prone enemies | catch champions, assassins, poke, an isolated enemy split pusher | more picks with a big edge |
+| Play reactive | one shotcaller, experience, vision, clutch players, a comp with no hole | the threat it answers (the enemy plan's expected payoff) | an executed read keeps only 30% of the enemy plan's payoff |
+
+`success = sigmoid(Σ success factors)` (5–95%), `effectiveness = 0.3 + Σ payoff factors` (5–100). At the start of the game each plan is rolled once against its success rate; the log announces both plans and calls the outcome at the plan's moment (ganks 7:00, reactive 11:00, picks 15:00, teamfight 17:00, split 21:00, scaling 26:00). An executed plan adds up to `0.6 × effectiveness` logit to its events in its phase, a failed one costs 35% of that, and plans carry a fixed 0.15 trade-off outside their phase. The plan never changes the draft (the draft draws from the game's RNG first), and the same plan replays the same game.
 
 ## Data
 
@@ -204,6 +219,7 @@ Every z-score is multiplied by `games/(games+8)` before the thresholds, so a ful
 - `synergy.test.ts`: 0/1/2/3 shotcaller cases, played-together values and cap, region cap, playstyle fits, Swiss rematch avoidance
 - `draft.test.ts`: 10 unique picks and 10 bans, bans hit comfort picks, fearless locking raises pool exhaustion and lowers draft value by game 5
 - `features.test.ts`: tempo after dragon raises herald odds and decays; duo familiarity and style; a strong bot duo wins more dragons and 2v2s; greedier draft plans get more planned picks banned; pool tiers; fatigue in game 5 hits rookies not veterans; rookies crack under pressure far more than veterans; experience grows with career
+- `strategy.test.ts`: an aggressive jungler on Lee Sin rates gank pressure far above a passive one on Ornn; Lulu + Zeri makes scaling effective (more with a carry ADC); split pusher on a duelist, enemy engage punishes it; reactive scales with the threat; executed plans shift gank, lane and fight odds and win more games; plans never change the draft and replay deterministically
 - `events.test.ts`: over 1,000 sims, a stronger top laner wins grubs more than 50% of the time, even teams land at 40–60%, a stronger bot lane wins dragons more often, gank probability rises with jungler strength, no-shotcaller teams lose more Barons, the stronger team wins most games, and games are deterministic per seed
 
 ## Project layout
@@ -211,8 +227,8 @@ Every z-score is multiplied by `games/(games+8)` before the thresholds, so a ful
 ```
 src/config/balance.ts   every tunable number
 src/data/               teams.json, meta.json, ddragon.json, championAttrs.json, overrides.json
-src/lib/                rng, stats, strength (+ experience), playstyle, synergy, duo, champions, draft (+ plans), game, series, tournament, run, data
-src/components/         PlayerCard, TeamPanel (+ radar), DraftView, GameView, RiftMap (+ gold graph), atoms
+src/lib/                rng, stats, strength (+ experience), playstyle, synergy, duo, champions, draft (+ plans), strategy (game plans), game, series, tournament, run, data
+src/components/         PlayerCard, TeamPanel (+ radar), DraftView, StrategyPicker, GameView, RiftMap (+ gold graph), atoms
 src/screens/            Start, Draft, Tournament (standings + bracket), Series, Results
 scripts/scrape.ts       Worlds rosters/placements from Leaguepedia / gol.gg / Data Dragon
 scripts/scrape-season.ts full-year, league-adjusted stats and champion pools from every league + international event

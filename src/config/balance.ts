@@ -236,3 +236,24 @@ export const TOURNAMENT = {
   groupsCount: 4,
   groupSize: 4,
 };
+
+// ---------- Game plans (strategy after the draft) ----------
+export const STRATEGY = {
+  /** success = clamp(sigmoid(base + Σ success factors), min, max) */
+  successBase: 0,
+  successMin: 0.05,
+  successMax: 0.95,
+  /** effectiveness = clamp(base + Σ effect factors, min, 1) */
+  effectBase: 0.3,
+  effectMin: 0.05,
+  /** logit swing in the plan's own phase at effectiveness 1 */
+  maxLogit: 0.6,
+  /** a failed plan still costs this share of maxLogit × effectiveness in its phase */
+  failCost: 0.35,
+  /** fixed trade-off of a plan outside its phase (gank comps fall off late, scaling comps give up early) */
+  tradeoff: 0.15,
+  /** an executed reactive plan keeps this share of the enemy plan's effect */
+  reactiveDamp: 0.3,
+  /** game minute at which the plan's outcome is called in the log */
+  reveal: { gank: 7, scaling: 26, split: 21, teamfight: 17, pick: 15, reactive: 11 } as Record<string, number>,
+};
