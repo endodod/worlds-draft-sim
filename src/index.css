@@ -61,3 +61,7 @@ body {
 @media (prefers-reduced-motion: reduce) { .deal-card, .board-out .deal-card, .modal-fade-in, .modal-fade-out, .modal-pop, .modal-progress { animation: none !important; } }
 @keyframes toast-in { from { opacity: 0; transform: translateY(8px) } }
 .toast-in { animation: toast-in .25s ease-out both; }
+.struct { transition: opacity .4s ease; }
+.struct path, .struct circle, .struct polygon { transition: fill .4s ease, stroke .4s ease; }
+.nexus-down { animation: nexusfall .9s ease-out; transform-box: fill-box; }
+@keyframes nexusfall { 0% { opacity: 1; } 30% { opacity: .2; } 60% { opacity: 1; } 100% { opacity: 1; } }
