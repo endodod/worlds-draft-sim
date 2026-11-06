@@ -171,6 +171,7 @@ Every z-score is multiplied by `games/(games+8)` before the thresholds, so a ful
 - Sequence per game: 3 bans each, picks B-R-R-B-B-R, 2 bans each, picks R-B-B-R.
 - `value = mastery × metaStrength(year) × (1 + 0.25·compFit + combo)`.
   - `mastery = (0.35 + 0.65·g/(g+3)) · (0.7 + 0.6·winRate')` from the player's games on that champion **that year** (all events), with the win rate shrunk toward 50% for small samples. Champions outside the pool come from the year's role meta at mastery 0.3.
+  - **Off-role noise**: a champion that is rare for the role (< 5% of its pro games in the dataset, e.g. Lee Sin top) only counts in a player's pool with 4+ games; older scoreboards sometimes list a player in the wrong slot. The default pool only uses champions with ≥ 15% of their games in the role, and Safe drafts prefer pocket picks that are normal for the role.
   - Pool tiers per player: **signature** (top 3 by games with ≥ 6 games), **comfort** (≥ 3 games), **pocket** (1–2), **off-pool** (in that year's role meta, mastery 0.3) and a hidden **default pool** (every champion ever played in the role, mastery 0.16, about −16 rating in game). The default pool never shows on player cards, but it is what players fall back on when fearless and bans eat their real pool. Tiers show as coloured rings on every champion icon.
   - `combo`: a small table of known pairings (Xayah–Rakan, Kalista–Thresh, Lucian–Nami, Yasuo–knock-ups, …) adds 4–12%.
   - `metaStrength = 0.55 + 0.45·√(presence/0.5)` from that year's pick presence.

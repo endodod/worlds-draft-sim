@@ -1,6 +1,7 @@
 import { DUO, POOL, SYNERGY, TRAITS } from '../config/balance';
 import { teamDuos } from './duo';
 import { tierOf } from './draft';
+import { rolePool } from './roleShare';
 import type { RatedPlayer, Team } from './types';
 
 export interface Modifier {
@@ -154,13 +155,13 @@ export function computeSynergy(players: RatedPlayer[], index: TeammateIndex, com
   }
   // --- champion pools
   if (players.length) {
-    const comfortCount = (p: RatedPlayer) => p.champions.filter((c) => c.games >= POOL.comfortGames).length;
+    const comfortCount = (p: RatedPlayer) => rolePool(p).filter((c) => c.games >= POOL.comfortGames).length;
     const avgComfort = players.reduce((a, p) => a + comfortCount(p), 0) / players.length;
     if (complete && avgComfort < POOL.shallowBelow)
       mods.push({ id: 'pool', label: 'Shallow champion pools', value: POOL.shallowPenalty, reason: `Only ${avgComfort.toFixed(1)} comfort champions per player: fearless and target bans hurt.` });
     else if (complete && avgComfort > POOL.deepAbove)
       mods.push({ id: 'pool', label: 'Deep champion pools', value: POOL.deepBonus, reason: `${avgComfort.toFixed(1)} comfort champions per player: hard to ban out, fearless-proof.` });
-    const sig = (p: RatedPlayer) => [...p.champions].sort((a, b) => b.games - a.games).filter((c, i) => tierOf(c.games, i) === 'signature').map((c) => c.name);
+    const sig = (p: RatedPlayer) => [...rolePool(p)].sort((a, b) => b.games - a.games).filter((c, i) => tierOf(c.games, i) === 'signature').map((c) => c.name);
     const clashes: string[] = [];
     for (let i = 0; i < players.length; i++)
       for (let j = i + 1; j < players.length; j++) {
@@ -191,7 +192,7 @@ export interface Radar {
 
 export function poolDepthScore(p: RatedPlayer): number {
   // comfortable champions that year (>= 3 games, weighted by win rate), plus a little for pocket picks (0..100)
-  const solid = p.champions.reduce((a, c) => a + (c.games >= 3 ? 0.6 + 0.8 * c.winRate : 0.15), 0);
+  const solid = rolePool(p).reduce((a, c) => a + (c.games >= 3 ? 0.6 + 0.8 * c.winRate : 0.15), 0);
   return Math.max(0, Math.min(100, Math.round(solid * 8)));
 }
 

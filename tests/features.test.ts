@@ -223,3 +223,13 @@ describe('dead champions', async () => {
     expect(totalDeaths).toBe(g.final.kills[0] + g.final.kills[1]);
   });
 });
+
+describe('off-role noise', async () => {
+  const { rolePool, roleShare } = await import('../src/lib/roleShare');
+  it('rare-for-the-role champions only count with 4+ games', () => {
+    expect(roleShare('Lee Sin', 'JNG')).toBeGreaterThan(0.8);
+    const p = { role: 'TOP' as const, champions: [{ name: 'Lee Sin', games: 1, winRate: 1 }, { name: 'Gnar', games: 1, winRate: 1 }, { name: 'Lee Sin', games: 0, winRate: 0 }] };
+    expect(rolePool(p).map((c) => c.name)).toEqual(['Gnar']);
+    expect(rolePool({ role: 'TOP', champions: [{ name: 'Lee Sin', games: 5, winRate: 0.6 }] })).toHaveLength(1);
+  });
+});

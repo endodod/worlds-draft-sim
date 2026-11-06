@@ -3,6 +3,7 @@ import type { ChampionAttrs, RatedPlayer, Role } from './types';
 import { ROLES } from './types';
 import type { Rng } from './rng';
 import { ATTR_KEYS, championAttrs, comboBonus, metaStrength, roleMeta, roleMetaAll } from './champions';
+import { TYPICAL_SHARE, rolePool, roleShare } from './roleShare';
 
 export interface DraftTeam {
   name: string;
@@ -88,17 +89,17 @@ export function tierOf(games: number, rank: number): PoolTier {
 /** All champions a player could play: own pool from that year (real picks) + that year's role meta as fallback. */
 export function playerOptions(p: RatedPlayer, metaYear: number): Option[] {
   const out = new Map<string, Option>();
-  const pool = [...p.champions].sort((a, b) => b.games - a.games);
+  const pool = [...rolePool(p)].sort((a, b) => b.games - a.games);
   pool.forEach((c, i) => out.set(c.name, { champion: c.name, mastery: mastery(c.games, c.winRate), comfort: true, tier: tierOf(c.games, i), games: c.games }));
   for (const c of roleMeta(metaYear, p.role)) if (!out.has(c)) out.set(c, { champion: c, mastery: DRAFT.fallbackMastery, comfort: false, tier: 'off', games: 0 });
   // default pool: every champion ever played in the role, at much lower mastery (never shown on player cards)
-  for (const c of roleMetaAll(p.role)) if (!out.has(c)) out.set(c, { champion: c, mastery: DRAFT.defaultMastery, comfort: false, tier: 'default', games: 0 });
+  for (const c of roleMetaAll(p.role)) if (!out.has(c) && roleShare(c, p.role) >= TYPICAL_SHARE) out.set(c, { champion: c, mastery: DRAFT.defaultMastery, comfort: false, tier: 'default', games: 0 });
   return [...out.values()];
 }
 
 /** Count of champions per tier in a player's pool. */
 export function poolSummary(p: RatedPlayer): Record<Exclude<PoolTier, 'off' | 'default'>, number> {
-  const pool = [...p.champions].sort((a, b) => b.games - a.games);
+  const pool = [...rolePool(p)].sort((a, b) => b.games - a.games);
   const out = { signature: 0, comfort: 0, pocket: 0 };
   pool.forEach((c, i) => out[tierOf(c.games, i) as keyof typeof out]++);
   return out;
@@ -151,7 +152,9 @@ export function planPicks(players: RatedPlayer[], year: number, plan: DraftPlan,
     if (plan === 'comfort') window = pool.slice(0, 2);
     else if (plan === 'balanced') window = pool.slice(2, 5);
     else {
-      const pocket = pool.filter((o) => o.games <= 2);
+      // pocket picks, the ones that are normal for the role first (no Lulu top unless that's all there is)
+      const typical = (o: Option) => roleShare(o.champion, p.role) >= TYPICAL_SHARE;
+      const pocket = [...pool.filter((o) => o.games <= 2 && typical(o)), ...pool.filter((o) => o.games <= 2 && !typical(o))];
       window = pocket.length ? pocket : pool.slice(5);
     }
     const choice = [...window, ...(plan === 'deep' ? [...pool].reverse() : pool)].find((o) => !taken.has(o.champion));
@@ -236,7 +239,11 @@ export function runDraft(teams: [DraftTeam, DraftTeam], state: SeriesDraftState,
         ? own
         : plan === 'balanced'
           ? [...own.filter((o) => o.games >= POOL.comfortGames), ...own.filter((o) => o.games < POOL.comfortGames)]
-          : [...own.filter((o) => o.games <= 2), ...own.filter((o) => o.games > 2)];
+          : (() => {
+              const role = teams[side].players[idx].role;
+              const typical = (o: Option) => roleShare(o.champion, role) >= TYPICAL_SHARE;
+              return [...own.filter((o) => o.games <= 2 && typical(o)), ...own.filter((o) => o.games > 2), ...own.filter((o) => o.games <= 2 && !typical(o))];
+            })();
     // only when the real pool is gone: the year's meta (off-pool), then the default pool
     const opt = preferred[0] ?? byValue(pool.filter((o) => o.tier === 'off'))[0] ?? byValue(pool)[0];
     return { opt, v: value(opt), status };
