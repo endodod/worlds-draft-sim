@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { GameSim, simulateGame, type SimTeam } from '../src/lib/game';
+import { EARLY_KEY_EVENTS, GameSim, KEY_EVENTS_PER_GAME, simulateGame, type SimTeam } from '../src/lib/game';
 import { runDraft } from '../src/lib/draft';
 import { makeRng } from '../src/lib/rng';
 import { lineup } from './helpers';
@@ -69,5 +69,18 @@ describe('event probabilities move in the right direction', () => {
     const a = simulateGame({ ...input, year: 2025 }, makeRng('same'));
     const b = simulateGame({ ...input, year: 2025 }, makeRng('same'));
     expect(a.events.map((e) => e.text)).toEqual(b.events.map((e) => e.text));
+  });
+});
+
+describe('key events log', () => {
+  it('shows at most 7 plays per game, at most 3 early, always the Nexus', () => {
+    const input = setup();
+    for (let i = 0; i < 200; i++) {
+      const ev = simulateGame({ ...input, year: 2025 }, makeRng('key' + i)).events;
+      const plays = ev.slice(1).filter((e) => e.major);
+      expect(plays.length).toBeLessThanOrEqual(KEY_EVENTS_PER_GAME);
+      expect(plays.filter((e) => e.t < 14 * 60).length).toBeLessThanOrEqual(EARLY_KEY_EVENTS);
+      expect(ev.find((e) => e.kind === 'end')?.major).toBe(true);
+    }
   });
 });

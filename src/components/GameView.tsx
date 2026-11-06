@@ -126,7 +126,7 @@ export function GameView({ game, teams, onFinished, onSkipSeries }: { game: Seri
                 <span className={e.kind === 'end' ? 'font-bold text-gold-400' : e.kind === 'misplay' ? 'text-orange-300' : e.major ? 'font-medium text-slate-100' : 'text-slate-400'}>{e.text}</span>
               </div>
             ))}
-            {simple && <div className="px-2 pt-1 text-[10px] text-slate-600">Key events only: first blood, Barons, Elders, soul, big fights, aces, inhibitors, nerves and throws.</div>}
+            {simple && <div className="px-2 pt-1 text-[10px] text-slate-600">Key events only: a few early plays, then the game-deciding moments — aces, soul, Barons, Elders and big chokes.</div>}
           </div>
           {done && (
             <div className="card flex items-center justify-between gap-2 p-3">
