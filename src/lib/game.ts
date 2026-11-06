@@ -1,4 +1,4 @@
-import { BOTLANE, DRAFT, DUO, FATIGUE, MATCHUP, POOL, SIM, STRATEGY, STYLE, TEMPO, TRAITS } from '../config/balance';
+import { BOTLANE, DRAFT, DUO, ENDGAME, FATIGUE, MATCHUP, POOL, SIM, STRATEGY, STYLE, TEMPO, TRAITS } from '../config/balance';
 import { earlyPhase, latePhase, teamStyle, type StyleProfile } from './teamstyle';
 import type { DraftResult, CompScore } from './draft';
 import { championAttrs, championTags } from './champions';
@@ -502,10 +502,30 @@ export class GameSim {
     this.lines[opp][victim].d++;
     this.pendingDeaths.push({ side: opp, idx: victim });
     for (const a of assists) if (a !== killer) this.lines[side][a].a++;
-    this.addGold(side, SIM.killGold, killer);
+    this.addGold(side, Math.round(SIM.killGold * this.bounty(side)), killer);
     const fb = !this.firstBlood;
     this.firstBlood = true;
     return fb ? ' — FIRST BLOOD' : '';
+  }
+  /** Kill gold share: kills by the leading team are worth less, kills by the trailing team carry shutdown gold. */
+  bounty(side: Side): number {
+    const lead = this.gold[side] - this.gold[(1 - side) as Side];
+    if (lead >= 0) return Math.max(ENDGAME.bountyMinShare, 1 - lead / ENDGAME.bountyLeadGold);
+    return 1 + Math.min(ENDGAME.bountyMaxBonus, -lead / ENDGAME.bountyTrailGold);
+  }
+  /** How far ahead a side is: gold lead in thousands plus a share of the tower lead (negative when behind). */
+  dominance(side: Side): number {
+    const opp = (1 - side) as Side;
+    return (this.gold[side] - this.gold[opp]) / 1000 + ENDGAME.towersPerPoint * (this.towers[side] - this.towers[opp]);
+  }
+  /** the side that is clearly ahead (dominance >= min), or null */
+  leader(min: number): Side | null {
+    const d = this.dominance(0);
+    return d >= min ? 0 : d <= -min ? 1 : null;
+  }
+  /** index drawn from a weight table */
+  draw(weights: number[]): number {
+    return this.rng.weighted(weights.map((_, i) => i), (i) => weights[i]);
   }
   pickN<T>(arr: T[], n: number): T[] {
     return this.rng.shuffle([...arr]).slice(0, n);
@@ -812,13 +832,16 @@ export class GameSim {
     if (blunder !== null) p0 = blunder === 0 ? p0 * 0.35 : 1 - (1 - p0) * 0.35;
     const w: Side = this.rng.chance(p0) ? 0 : 1;
     const l = (1 - w) as Side;
-    const contested = Math.abs(p0 - 0.5) < 0.3 || kind === 'baron' || kind === 'elder' || this.rng.chance(0.4);
+    const big = kind === 'baron' || kind === 'elder';
+    // a team far behind usually concedes the big objective instead of flipping a coin on a 4v5
+    const conceded = big && this.dominance(w) >= ENDGAME.turtleDominance && this.rng.chance(0.55);
+    const contested = !conceded && (Math.abs(p0 - 0.5) < 0.3 || big || this.rng.chance(0.4));
     const actorsFor = (side: Side, kind2: string) =>
       (kind2 === 'grubs' || kind2 === 'herald' ? [0, 1, 2] : kind2 === 'dragon' ? [1, 3, 4, 2] : [0, 1, 2, 3, 4]).map((idx) => ({ side, idx }));
     const actors = [...actorsFor(w, kind), ...(contested ? actorsFor(l, kind) : [])];
     let fightText = '';
     if (contested) {
-      const n = kind === 'baron' || kind === 'elder' ? this.rng.int(2, 5) : this.rng.int(0, 2);
+      const n = big ? this.draw(ENDGAME.objectiveFightKills) : this.rng.int(0, 2);
       const winners = actorsFor(w, kind).map((a) => a.idx);
       const losers = actorsFor(l, kind).map((a) => a.idx);
       const victims = this.pickN(losers, Math.min(n, losers.length));
@@ -905,14 +928,15 @@ export class GameSim {
     if (blunder !== null) p0 = blunder === 0 ? p0 * 0.5 : 1 - (1 - p0) * 0.5;
     const w: Side = this.rng.chance(p0) ? 0 : 1;
     const l = (1 - w) as Side;
-    const n = this.rng.int(1, 5);
+    const n = 1 + this.draw(ENDGAME.fightKills);
     // a carry that can't be peeled dies first
     const lPeel = this.peelMargin(l);
     const wPeel = this.peelMargin(w);
     const victims = this.rng.shuffle([0, 1, 2, 3, 4]).sort((a, b) => (b === 3 && lPeel < 0 ? 1 : 0) - (a === 3 && lPeel < 0 ? 1 : 0)).slice(0, n);
     const killers = [0, 1, 2, 3, 4];
     for (const v of victims) this.kill(w, this.rng.weighted(killers, (i) => (i === 4 ? 0.3 : 1) + this.p(w, i).rating.impact / 50), v, killers);
-    const back = this.rng.int(0, Math.max(0, 2 - Math.floor(n / 2)));
+    // trades: fewer when the winner is far ahead (the losing side has no gold to fight back with)
+    const back = this.dominance(w) >= ENDGAME.turtleDominance && this.rng.chance(0.6) ? 0 : this.rng.int(0, Math.max(0, 2 - Math.floor(n / 2)));
     for (let i = 0; i < back; i++) this.kill(l, this.rng.pick(killers), this.rng.pick(killers), killers);
     const engager = this.comp(w).engage >= this.comp(l).engage ? this.rng.pick([1, 4, 0]) : this.rng.pick([2, 3]);
     const carry = this.rng.weighted(killers, (i) => this.lines[w][i].k + 1);
@@ -1017,16 +1041,43 @@ export class GameSim {
     return true;
   }
 
-  /** After a decisive win: take structures; may end the game. */
+  /**
+   * After a decisive win: take structures; may end the game.
+   * The further ahead the team is (gold and towers), the more it takes and the likelier it ends:
+   * a clearly winning team closes the game on its first or second baron instead of farming a third.
+   */
   push(side: Side, reason: 'baron' | 'elder' | 'ace' | 'fight') {
     const opp = (1 - side) as Side;
-    const taken = reason === 'fight' ? this.rng.int(0, 1) : this.rng.int(1, 3);
-    for (let i = 0; i < taken; i++) this.takeTower(side);
-    if (taken) this.addGold(side, SIM.towerGold * taken);
+    const dom = this.dominance(side);
     const strong = reason !== 'fight';
-    if (this.towers[side] >= 6 && strong && this.inhibs[side] < 3 && this.rng.chance(0.6)) this.takeInhib(side);
-    const endChance = this.t < 22 * 60 ? 0 : this.inhibs[side] >= 1 && strong ? (reason === 'elder' || reason === 'ace' ? 0.75 : 0.45) + 0.1 * this.inhibs[side] : 0;
-    if (taken) this.log({ kind: 'tower', location: opp === 1 ? 'base1' : 'base0', actors: [0, 1, 2, 3, 4].map((idx) => ({ side, idx })), side, text: `${this.team(side)} push with ${reason === 'fight' ? 'the advantage' : reason}: ${taken} tower${taken > 1 ? 's' : ''}${this.inhibs[side] ? `, ${this.inhibs[side]} inhibitor${this.inhibs[side] > 1 ? 's' : ''} down` : ''}` });
+    const taken = (strong ? this.rng.int(1, 3) : this.rng.int(0, 1)) + (dom >= ENDGAME.turtleDominance ? 1 : 0);
+    let got = 0;
+    for (let i = 0; i < taken; i++) if (this.takeTower(side)) got++;
+    if (got) this.addGold(side, SIM.towerGold * got);
+    if (this.towers[side] >= 5 && (strong || dom >= ENDGAME.closeDominance) && this.inhibs[side] < 3 && this.rng.chance(strong ? 0.65 : 0.4)) this.takeInhib(side);
+    let endChance = 0;
+    if (this.t >= ENDGAME.minEndMinute * 60) {
+      const domPart = Math.max(0, Math.min(ENDGAME.endDominanceMax, dom / ENDGAME.endDominanceDiv));
+      endChance = ENDGAME.endBase[reason] + ENDGAME.endPerInhib * this.inhibs[side] + domPart;
+      // without an inhibitor down a push only ends when the team is far ahead
+      if (!this.inhibs[side]) endChance *= dom >= ENDGAME.closeDominance ? 0.6 : 0.25;
+      if (reason === 'fight' && dom < ENDGAME.turtleDominance) endChance = 0;
+      if (reason === 'baron' && this.barons[side] >= 2 && dom > 0) endChance = Math.max(endChance, ENDGAME.repeatBaronEnd);
+    }
+    if (got || this.inhibs[side]) this.log({ kind: 'tower', location: opp === 1 ? 'base1' : 'base0', actors: [0, 1, 2, 3, 4].map((idx) => ({ side, idx })), side, text: `${this.team(side)} push with ${reason === 'fight' ? 'the advantage' : reason}: ${got} tower${got !== 1 ? 's' : ''}${this.inhibs[side] ? `, ${this.inhibs[side]} inhibitor${this.inhibs[side] > 1 ? 's' : ''} down` : ''}` });
+    if (this.rng.chance(Math.min(0.95, endChance))) this.end(side);
+  }
+
+  /** Late game: a team far ahead sieges the base while the other turtles (no fight needed), and can end it. */
+  siege(side: Side) {
+    const opp = (1 - side) as Side;
+    const got = [0, 1].filter(() => this.takeTower(side)).length;
+    if (got) this.addGold(side, SIM.towerGold * got);
+    if (this.towers[side] >= 5 && this.inhibs[side] < 3 && this.rng.chance(0.5)) this.takeInhib(side);
+    this.setTempo(side, TEMPO.fight * 0.5, 'siege');
+    this.log({ kind: 'tower', location: opp === 1 ? 'base1' : 'base0', actors: [0, 1, 2, 3, 4].map((idx) => ({ side, idx })), side, text: `${this.team(opp)} can't contest: ${this.team(side)} siege freely${got ? `, ${got} tower${got > 1 ? 's' : ''}` : ''}${this.inhibs[side] ? `, ${this.inhibs[side]} inhibitor${this.inhibs[side] > 1 ? 's' : ''} down` : ''}` });
+    const dom = this.dominance(side);
+    const endChance = this.inhibs[side] ? 0.25 + 0.1 * this.inhibs[side] + Math.min(0.3, (dom - ENDGAME.closeDominance) / 20) : 0;
     if (this.rng.chance(endChance)) this.end(side);
   }
 
@@ -1073,7 +1124,8 @@ export class GameSim {
     let last = this.t;
     let scuttled = false;
     while (this.winner === null) {
-      this.t += this.rng.int(35, 80);
+      // mid/late game: fewer, bigger moments (rotations and setup between fights)
+      this.t += this.t < 14 * 60 ? this.rng.int(35, 80) : this.rng.int(45, 95);
       const dt = this.t - last;
       last = this.t;
       const passive = (SIM.passiveGoldPerMin * dt) / 60;
@@ -1098,7 +1150,7 @@ export class GameSim {
       if (this.t >= this.next.herald) { this.resolveObjective('herald'); continue; }
       if (this.t >= this.next.elder) { this.resolveObjective('elder'); continue; }
       if (this.t >= this.next.atakhan) { this.resolveObjective('atakhan'); continue; }
-      if (this.t >= this.next.baron && this.rng.chance(min > 24 ? 0.75 : 0.45)) { this.resolveObjective('baron'); continue; }
+      if (this.t >= this.next.baron && this.rng.chance(min > 26 ? 0.5 : 0.3)) { this.resolveObjective('baron'); continue; }
       if (min < 14) {
         const r = this.rng.next();
         const gankShare = Math.min(0.45, 0.35 * (this.style[0].gankRate + this.style[1].gankRate) / 2);
@@ -1111,11 +1163,14 @@ export class GameSim {
         const r = this.rng.next();
         const pickBoost = ([0, 1] as Side[]).filter((s) => this.hasPlan(s, 'pick')).length * 0.06;
         const splitBoost = ([0, 1] as Side[]).filter((s) => this.hasPlan(s, 'split')).length * 0.08;
-        if (this.pendingCracks.length && this.rng.chance(0.35)) this.crackEvent();
+        const lead = this.leader(ENDGAME.closeDominance);
+        if (lead !== null && min >= ENDGAME.closeMinute && this.rng.chance(ENDGAME.closeChance)) this.siege(lead);
+        else if (this.pendingCracks.length && this.rng.chance(0.35)) this.crackEvent();
         else if (this.mistakeEvent()) {
           /* unforced throw */
         }
-        else if (r < 0.45) this.teamfight();
+        // a team far behind avoids 5v5s and waits for a pick or a throw
+        else if (r < (this.leader(ENDGAME.turtleDominance) !== null ? 0.3 : 0.4)) this.teamfight();
         else if (r < 0.7 + pickBoost) this.pick();
         else if (r < Math.min(0.97, 0.85 + pickBoost + splitBoost) && this.splitPush()) {
           /* split */

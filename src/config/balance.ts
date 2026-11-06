@@ -316,6 +316,36 @@ export const SIM = {
   map: (year: number) => ({ grubs: year >= 2024, herald: true, atakhan: year >= 2025, soul: year >= 2019 }),
 };
 
+// ---------- Snowball control and closing out games ----------
+export const ENDGAME = {
+  /** dominance = gold lead / 1000 + towersPerPoint × tower lead (towers taken) */
+  towersPerPoint: 0.5,
+  /** kill gold: the leading team gets less per kill (min share), the trailing team gets shutdown gold (max bonus share) */
+  bountyLeadGold: 20000,
+  bountyMinShare: 0.6,
+  bountyTrailGold: 10000,
+  bountyMaxBonus: 0.8,
+  /** a team this far behind (dominance) avoids fights: fewer teamfights, more sieges for the leader */
+  turtleDominance: 5,
+  /** teamfight kills (index = kills - 1): most fights are 1-3 kills, aces are rare */
+  fightKills: [0.3, 0.3, 0.2, 0.12, 0.08],
+  /** kills in a contested baron / elder fight (index = kills) */
+  objectiveFightKills: [0.15, 0.3, 0.3, 0.15, 0.1],
+  /** no game ends before this minute */
+  minEndMinute: 23,
+  /** end chance after a baron / elder / ace push: base + per inhibitor + dominance / dominanceDiv (capped) */
+  endBase: { baron: 0.3, elder: 0.5, ace: 0.4, fight: 0.08 } as Record<'baron' | 'elder' | 'ace' | 'fight', number>,
+  endPerInhib: 0.12,
+  endDominanceDiv: 14,
+  endDominanceMax: 0.45,
+  /** a second (or later) baron for a team that's ahead almost always ends it */
+  repeatBaronEnd: 0.85,
+  /** late game: a dominant team (>= closeDominance) sieges every so often and can end without a fight */
+  closeMinute: 26,
+  closeDominance: 8,
+  closeChance: 0.35,
+};
+
 // ---------- Player draft ----------
 export const PLAYER_DRAFT = {
   /** rerolls of the three offered rosters per run */

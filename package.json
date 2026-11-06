@@ -11,7 +11,8 @@
     "seed": "tsx scripts/build-seed.ts",
     "scrape": "NODE_USE_ENV_PROXY=1 tsx scripts/scrape.ts",
     "scrape:season": "NODE_USE_ENV_PROXY=1 tsx scripts/scrape-season.ts",
-    "retag": "tsx scripts/retag.ts"
+    "retag": "tsx scripts/retag.ts",
+    "balance": "tsx scripts/balance-stats.ts"
   },
   "dependencies": {
     "react": "^18.3.1",
