@@ -7,7 +7,7 @@ import { championIcon, ddragonVersion } from '../lib/champions';
  */
 export const LOC: Record<LocationKey, [number, number]> = {
   top: [10, 12], mid: [50, 50], bot: [89, 88],
-  baron: [32, 29], dragon: [67, 70],
+  baron: [33.2, 29.4], dragon: [67, 70.4],
   scuttleTop: [38, 37], scuttleBot: [62, 63],
   jungle0: [30, 64], jungle1: [70, 36],
   base0: [14, 86], base1: [86, 14],
