@@ -1,10 +1,21 @@
 import { PLANS, type DraftResult, type PlanEntry } from '../lib/draft';
+import { botLaneLabel } from '../lib/botlane';
 import { ATTR_KEYS } from '../lib/champions';
 import type { SeriesTeam } from '../lib/series';
 import { TEAM_COLOR } from './RiftMap';
 import { ChampIcon, RoleIcon, TIER_STYLE } from './atoms';
 
 const STATUS_LABEL: Record<Exclude<PlanEntry['status'], 'ok'>, string> = { banned: 'banned', taken: 'taken', dodged: 'dodged the counter' };
+
+/** Bot lane pairing chip (on the ADC row): only for a clearly good or clearly awkward ADC + support. */
+function DuoChip({ duo }: { duo?: { with: string; fit: number } }) {
+  if (!duo || (duo.fit < 0.35 && duo.fit > -0.2)) return null;
+  return (
+    <span className={duo.fit > 0 ? 'text-sky-400' : 'text-amber-400'} title={`Bot lane fit with ${duo.with}: ${duo.fit > 0 ? '+' : ''}${Math.round(duo.fit * 100)}`}>
+      {botLaneLabel(duo.fit)} with {duo.with}
+    </span>
+  );
+}
 
 /** Lane matchup chip: only shown when one side clearly wins the lane. */
 function MatchupChip({ m, vs }: { m?: number; vs?: string }) {
@@ -74,6 +85,7 @@ export function DraftView({ draft, teams, fearless }: { draft: DraftResult; team
                             <span>{pk.games ? `${pk.games} games this year` : 'never played this year'}</span>
                             <span>mastery {Math.min(100, Math.round(pk.mastery * 100))}</span>
                             {pk.combo && <span className="text-hex-400">combo with {pk.combo.join(', ')}</span>}
+                            {pk.role === 'BOT' && <DuoChip duo={pk.duo} />}
                             <MatchupChip m={pk.matchup} vs={pk.vs} />
                             {entry && entry.status !== 'ok' && <span className="text-orange-400">planned {entry.planned} ({STATUS_LABEL[entry.status]})</span>}
                           </div>

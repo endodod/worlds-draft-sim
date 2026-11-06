@@ -116,6 +116,18 @@ export const DUO = {
   toLogit: 0.55,
 };
 
+// ---------- Bot lane champion pairing (ADC + support) ----------
+export const BOTLANE = {
+  /** draft value factor per 1.0 of fit: Zeri + Yuumi is worth up to +15%, an awkward pair costs up to -15% */
+  valueMax: 0.15,
+  /** before the partner is locked: weight of the expected fit with the partner player's likely picks */
+  blindWeight: 0.6,
+  /** how many of the partner's best available own-pool champions make up that expectation */
+  blindTop: 3,
+  /** logit per 1.0 of fit difference in bot lane events */
+  toLogit: 0.35,
+};
+
 // ---------- Champion pools ----------
 export const POOL = {
   /** tiers by games that year: signature = top-3 by games with >= signatureGames */

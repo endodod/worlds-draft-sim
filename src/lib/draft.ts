@@ -1,9 +1,10 @@
-import { AI_PLAN, DRAFT, MATCHUP, PLAN, POOL, TRAITS } from '../config/balance';
+import { AI_PLAN, BOTLANE, DRAFT, MATCHUP, PLAN, POOL, TRAITS } from '../config/balance';
 import type { ChampionAttrs, RatedPlayer, Role } from './types';
 import { ROLES } from './types';
 import type { Rng } from './rng';
 import { ATTR_KEYS, championAttrs, comboBonus, matchup, metaStrength, roleMeta, roleMetaAll } from './champions';
 import { TYPICAL_SHARE, rolePool, roleShare } from './roleShare';
+import { botLaneFactor, botLaneFit } from './botlane';
 
 export interface DraftTeam {
   name: string;
@@ -42,6 +43,7 @@ export interface Pick {
   combo?: string[]; // champions this one combos with
   vs?: string; // the enemy champion in the same role
   matchup?: number; // lane matchup against `vs`, -1..1 (+ = this pick wins the lane)
+  duo?: { with: string; fit: number }; // bot lane: the lane partner's champion and the ADC/support fit, -1..1
 }
 
 export type CompScore = ChampionAttrs;
@@ -72,6 +74,8 @@ export interface DraftResult {
   plans: [PlanReport | null, PlanReport | null];
   /** lane matchup per role (TOP..SUP) from side 0's point of view, -1..1 */
   matchups: number[];
+  /** bot lane champion fit (ADC + support) per side, -1..1 */
+  botLane?: [number, number];
 }
 
 /** Win rate shrunk toward 50% for small samples, then turned into mastery. */
@@ -147,10 +151,22 @@ export const matchupWeight = (idx: number) => (idx === 1 ? MATCHUP.jungleWeight 
 /** Value factor for a lane matchup: up to ±MATCHUP.counterValue. */
 export const matchupFactor = (m: number, idx: number) => 1 + MATCHUP.counterValue * m * matchupWeight(idx);
 
-/** Draft value of a champion for a player; with `vs` (the enemy laner, already locked) the lane matchup counts too. */
-export function championValue(opt: Option, year: number, current: string[], vs?: { champion: string; idx: number }): number {
-  const base = opt.mastery * metaStrength(opt.champion, year) * (1 + DRAFT.compFitMax * compFit(current, opt.champion) + comboBonus(opt.champion, current).bonus);
+/**
+ * Draft value of a champion for a player; with `vs` (the enemy laner, already locked) the lane matchup counts too,
+ * with `duoFit` (bot lane: fit with the partner's champion, or the expected fit) the ADC/support pairing.
+ */
+export function championValue(opt: Option, year: number, current: string[], vs?: { champion: string; idx: number }, duoFit = 0): number {
+  const base = opt.mastery * metaStrength(opt.champion, year) * (1 + DRAFT.compFitMax * compFit(current, opt.champion) + comboBonus(opt.champion, current).bonus) * botLaneFactor(duoFit);
   return vs ? base * matchupFactor(matchup(opt.champion, vs.champion), vs.idx) : base;
+}
+
+export const BOT_IDX = 3;
+export const SUP_IDX = 4;
+/** Fit of `champ` played in role `idx` with `partner` in the other bot lane role (0 outside the bot lane). */
+export function duoFitAt(idx: number, champ: string, partner: string): number {
+  if (idx === BOT_IDX) return botLaneFit(champ, partner);
+  if (idx === SUP_IDX) return botLaneFit(partner, champ);
+  return 0;
 }
 
 /**
@@ -173,7 +189,8 @@ export function aiPlan(players: RatedPlayer[], rng: Rng, ctx: { pressure?: boole
  */
 export function planPicks(players: RatedPlayer[], year: number, plan: DraftPlan, unavailable: Set<string>): string[] {
   const taken = new Set<string>();
-  return players.map((p) => {
+  const out: string[] = [];
+  return players.map((p, idx) => {
     const pool = playerOptions(p, year)
       .filter((o) => o.comfort && !unavailable.has(o.champion))
       .map((o) => ({ o, v: o.mastery * metaStrength(o.champion, year) }))
@@ -188,9 +205,16 @@ export function planPicks(players: RatedPlayer[], year: number, plan: DraftPlan,
       const pocket = [...pool.filter((o) => o.games <= 2 && typical(o)), ...pool.filter((o) => o.games <= 2 && !typical(o))];
       window = pocket.length ? pocket : pool.slice(5);
     }
+    // the support plans around the planned ADC: inside the window, the better lane partner first
+    const adc = idx === SUP_IDX ? out[BOT_IDX] : undefined;
+    if (adc && plan !== 'deep') {
+      const v = (o: Option) => o.mastery * metaStrength(o.champion, year) * botLaneFactor(botLaneFit(adc, o.champion));
+      window = [...window].sort((a, b) => v(b) - v(a));
+    }
     const choice = [...window, ...(plan === 'deep' ? [...pool].reverse() : pool)].find((o) => !taken.has(o.champion));
     const champ = choice?.champion ?? playerOptions(p, year).find((o) => !unavailable.has(o.champion) && !taken.has(o.champion))!.champion;
     taken.add(champ);
+    out[idx] = champ;
     return champ;
   });
 }
@@ -236,6 +260,26 @@ export function runDraft(
     return c ? { champion: c, idx } : undefined;
   };
 
+  /**
+   * Bot lane fit for `champ` in role `idx`: with the partner's locked champion, or before that the expected fit with
+   * the partner's planned champion / best available own-pool champions (flexible ADCs score well against any of them).
+   */
+  const duoFit = (side: 0 | 1, idx: number, champ: string): number => {
+    if (idx !== BOT_IDX && idx !== SUP_IDX) return 0;
+    const pIdx = idx === BOT_IDX ? SUP_IDX : BOT_IDX;
+    const locked = picks[side].find((p) => p.playerIdx === pIdx)?.champion;
+    if (locked) return duoFitAt(idx, champ, locked);
+    const plannedPartner = planned[side]?.[pIdx];
+    if (plannedPartner && plannedPartner !== champ && !unavailable.has(plannedPartner)) return BOTLANE.blindWeight * duoFitAt(idx, champ, plannedPartner);
+    const likely = options[side][pIdx]
+      .filter((o) => o.comfort && o.champion !== champ && !unavailable.has(o.champion))
+      .map((o) => ({ c: o.champion, v: o.mastery * metaStrength(o.champion, teams[side].year) }))
+      .sort((a, b) => b.v - a.v)
+      .slice(0, BOTLANE.blindTop);
+    if (!likely.length) return 0;
+    return (BOTLANE.blindWeight * likely.reduce((a, l) => a + duoFitAt(idx, champ, l.c), 0)) / likely.length;
+  };
+
   // plans: planned champion per player and which of them the opponent has read
   const planned: [string[] | null, string[] | null] = [null, null];
   const exposed: [string[], string[]] = [[], []];
@@ -253,7 +297,7 @@ export function runDraft(
     let best: { opt: Option; v: number } | null = null;
     for (const o of options[side][idx]) {
       if (unavailable.has(o.champion)) continue;
-      const v = championValue(o, teams[side].year, current(side), enemyLaner(side, idx)) * (1 + 0.06 * rng.normal());
+      const v = championValue(o, teams[side].year, current(side), enemyLaner(side, idx), duoFit(side, idx, o.champion)) * (1 + 0.06 * rng.normal());
       if (!best || v > best.v) best = { opt: o, v };
     }
     return best;
@@ -265,7 +309,7 @@ export function runDraft(
     const opts = options[side][idx].filter((o) => !unavailable.has(o.champion));
     if (!opts.length) return null;
     const vs = enemyLaner(side, idx);
-    const value = (o: Option) => championValue(o, teams[side].year, current(side), vs);
+    const value = (o: Option) => championValue(o, teams[side].year, current(side), vs, duoFit(side, idx, o.champion));
     const hit = opts.find((o) => o.champion === want);
     // the planned champion is free: lock it, unless the enemy laner already counters it hard
     const countered = !!hit && !!vs && matchup(hit.champion, vs.champion) * matchupWeight(idx) <= MATCHUP.dodgeBelow;
@@ -316,6 +360,9 @@ export function runDraft(
           if (unavailable.has(o.champion) || hidden(opp, o.champion) || planned[side]?.includes(o.champion)) continue;
           let v = o.mastery * metaStrength(o.champion, teams[opp].year) * (o.comfort ? 1 : 0.7);
           if (state.winningChamps.has(o.champion)) v *= 1 + DRAFT.banAdaptBonus;
+          // deny the lane partner: the enemy ADC is locked, ban the support that completes the duo (and vice versa)
+          const partner = i === BOT_IDX || i === SUP_IDX ? picks[opp].find((p) => p.playerIdx === (i === BOT_IDX ? SUP_IDX : BOT_IDX))?.champion : undefined;
+          if (partner) v *= 1 + 2 * BOTLANE.valueMax * Math.max(0, duoFitAt(i, o.champion, partner));
           // one-tricks get their signature champion banned out
           if (o.tier === 'signature' && teams[opp].players[i].playstyle.includes('one_trick')) v *= 1 + TRAITS.oneTrickBan;
           // protect your own planned laner: ban the champion that would counter it
@@ -344,7 +391,8 @@ export function runDraft(
       unavailable.add(choice.opt.champion);
       const role = ROLES[choice.idx];
       const combo = comboBonus(choice.opt.champion, current(side)).with;
-      // stored without the lane matchup: it is applied below against the final enemy laner (so blind picks pay for being countered)
+      // stored without the lane matchup and the bot lane fit: both are applied below against the final picks
+      // (blind picks pay for being countered, an ADC picked for a support that never came pays for the awkward lane)
       const base = championValue(choice.opt, teams[side].year, current(side));
       picks[side].push({
         role,
@@ -379,12 +427,16 @@ export function runDraft(
         pk.vs = enemy.champion;
         pk.matchup = m;
       }
-      pk.value = Math.round(pk.value * matchupFactor(enemy ? m : 0, pk.playerIdx) * 1000) / 1000;
+      const partner = pk.playerIdx === BOT_IDX || pk.playerIdx === SUP_IDX ? picks[s].find((p) => p.playerIdx === (pk.playerIdx === BOT_IDX ? SUP_IDX : BOT_IDX)) : undefined;
+      const fit = partner ? duoFitAt(pk.playerIdx, pk.champion, partner.champion) : 0;
+      if (partner) pk.duo = { with: partner.champion, fit };
+      pk.value = Math.round(pk.value * matchupFactor(enemy ? m : 0, pk.playerIdx) * botLaneFactor(fit) * 1000) / 1000;
     }
+  const botLane = [0, 1].map((s) => picks[s].find((p) => p.playerIdx === BOT_IDX)?.duo?.fit ?? 0) as [number, number];
   const comp: [CompScore, CompScore] = [compScore(picks[0].map((p) => p.champion)), compScore(picks[1].map((p) => p.champion))];
   const value: [number, number] = [avg(picks[0].map((p) => p.value)), avg(picks[1].map((p) => p.value))];
   const exhaustion = [0, 1].map((s) => teams[s].players.map((p, i) => poolExhaustion(options[s][i], unavailable, picks[s][i]?.champion))) as [number[], number[]];
-  return { bans, picks, order, comp, value, exhaustion, plans: reports, matchups };
+  return { bans, picks, order, comp, value, exhaustion, plans: reports, matchups, botLane };
 }
 
 /** Share of a player's comfort pool (mastery-weighted) that is unavailable (fearless-locked, banned or taken). */

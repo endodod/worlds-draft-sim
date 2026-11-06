@@ -1,4 +1,4 @@
-import { DRAFT, DUO, FATIGUE, MATCHUP, POOL, SIM, STRATEGY, STYLE, TEMPO, TRAITS } from '../config/balance';
+import { BOTLANE, DRAFT, DUO, FATIGUE, MATCHUP, POOL, SIM, STRATEGY, STYLE, TEMPO, TRAITS } from '../config/balance';
 import { earlyPhase, latePhase, teamStyle, type StyleProfile } from './teamstyle';
 import type { DraftResult, CompScore } from './draft';
 import { championAttrs, championTags } from './champions';
@@ -512,6 +512,12 @@ export class GameSim {
   }
 
   /** Champion lane matchup for side 0 in a lane (avg over its roles, -1..1; older drafts without matchups give 0). */
+  /** Bot lane champion fit (ADC + support) difference for side 0, -2..2. */
+  botLaneDiff(): number {
+    const f = this.input.draft.botLane;
+    return f ? f[0] - f[1] : 0;
+  }
+
   laneMatchup(roles: readonly number[]): number {
     const m = this.input.draft.matchups;
     if (!m) return 0;
@@ -531,7 +537,7 @@ export class GameSim {
     x += SIM.compToLogit * (this.comp(0).early - this.comp(1).early) / 3;
     x += 0.4 * SIM.ratingToLogit * (this.power[0] - this.power[1]);
     x -= TRAITS.weakLaneLogit * this.traitDiff('weak_laner', lane.roles);
-    if (lane.key === 'bot') x += DUO.toLogit * this.duoDiff('BOT-SUP');
+    if (lane.key === 'bot') x += DUO.toLogit * this.duoDiff('BOT-SUP') + BOTLANE.toLogit * this.botLaneDiff();
     if (lane.key === 'top') x += 0.5 * DUO.toLogit * this.duoDiff('JNG-TOP');
     if (lane.key === 'mid') x += 0.5 * DUO.toLogit * this.duoDiff('JNG-MID');
     x += MATCHUP.toLogit * this.laneMatchup(lane.roles);
@@ -544,7 +550,7 @@ export class GameSim {
   botSkirmish() {
     const lane = LANES[2];
     let x = SIM.playerDiffToLogit * this.statDiff([3, 4], (p) => 0.6 * p.rating.laning + 0.4 * p.rating.strength);
-    x += DUO.toLogit * 1.4 * this.duoDiff('BOT-SUP');
+    x += DUO.toLogit * 1.4 * this.duoDiff('BOT-SUP') + BOTLANE.toLogit * 1.4 * this.botLaneDiff();
     x += MATCHUP.toLogit * this.laneMatchup([3, 4]);
     x += earlyPhase(this.t) * this.styleLaneDiff([3, 4]);
     x += SIM.compToLogit * (this.comp(0).early - this.comp(1).early) / 3 + 0.3 * SIM.ratingToLogit * (this.power[0] - this.power[1]);
@@ -558,7 +564,8 @@ export class GameSim {
     const lJ = this.rng.chance(Math.max(0.05, jngCome(l)) * 0.7);
     const duoName = `${this.name(w, 3)} and ${this.name(w, 4)}`;
     const actors: Actor[] = [{ side: w, idx: 3 }, { side: w, idx: 4 }, { side: l, idx: 3 }, { side: l, idx: 4 }, ...(wJ ? [{ side: w, idx: 1 }] : []), ...(lJ ? [{ side: l, idx: 1 }] : [])];
-    const synergyNote = duoW >= 0.5 ? ' (duo synergy)' : '';
+    const champFit = this.input.draft.botLane?.[w] ?? 0;
+    const synergyNote = duoW >= 0.5 ? ' (duo synergy)' : champFit >= 0.75 ? ' (signature bot lane)' : '';
     if (wJ && !lJ) {
       const v1 = this.rng.pick([3, 4]);
       const fb = this.kill(w, this.rng.pick([3, 1]), v1, [1, 3, 4]);

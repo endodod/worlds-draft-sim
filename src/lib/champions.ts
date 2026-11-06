@@ -81,14 +81,10 @@ export { KEYS as ATTR_KEYS };
  * Kept small and conservative: draft value is mostly mastery and meta.
  */
 const COMBOS: [string, string, number][] = [
-  ['Xayah', 'Rakan', 0.12], ['Kalista', 'Thresh', 0.08], ['Kalista', 'Renata Glasc', 0.08], ['Kalista', 'Rell', 0.06],
-  ['Lucian', 'Nami', 0.1], ['Lucian', 'Braum', 0.08], ['Ezreal', 'Karma', 0.06], ['Varus', 'Alistar', 0.06],
-  ['Jinx', 'Lulu', 0.08], ['Kog\'Maw', 'Lulu', 0.1], ['Twitch', 'Lulu', 0.08], ['Aphelios', 'Thresh', 0.06],
-  ['Caitlyn', 'Lux', 0.07], ['Caitlyn', 'Morgana', 0.06], ['Draven', 'Leona', 0.07], ['Samira', 'Nautilus', 0.08],
-  ['Senna', 'Tahm Kench', 0.08], ['Zeri', 'Yuumi', 0.08], ['Kai\'Sa', 'Nautilus', 0.07], ['Ashe', 'Sett', 0.05],
+  // bot lane ADC + support pairs live in botlane.ts (role-aware)
   ['Yasuo', 'Gragas', 0.08], ['Yasuo', 'Alistar', 0.06], ['Yasuo', 'Diana', 0.06], ['Yone', 'Diana', 0.05],
   ['Orianna', 'Jarvan IV', 0.08], ['Orianna', 'Nocturne', 0.06], ['Galio', 'Camille', 0.05], ['Twisted Fate', 'Nocturne', 0.06],
-  ['Taliyah', 'Malphite', 0.06], ['Azir', 'Rell', 0.04], ['Miss Fortune', 'Amumu', 0.06], ['Miss Fortune', 'Leona', 0.05],
+  ['Taliyah', 'Malphite', 0.06], ['Azir', 'Rell', 0.04], ['Miss Fortune', 'Amumu', 0.06],
 ];
 const COMBO_MAP = new Map<string, number>();
 for (const [a, b, v] of COMBOS) {
