@@ -359,6 +359,15 @@ export const TOURNAMENT = {
   swissLossesToElim: 3,
   groupsCount: 4,
   groupSize: 4,
+  /**
+   * AI field: pedigree weight = fieldWeight[placement] × exp((team rating - ratingPivot) / ratingScale).
+   * Champions and finalists show up far more often than group-stage exits.
+   */
+  fieldWeight: { Winner: 4.5, Finalist: 4, Semifinals: 3, Quarterfinals: 2, Groups: 1 } as Record<string, number>,
+  fieldRatingPivot: 65,
+  fieldRatingScale: 20,
+  /** Swiss: the player's opponent within a record bracket is drawn with weight exp(bias × (rating - bracket average)) */
+  userOpponentBias: 0.08,
 };
 
 // ---------- Game plans (strategy after the draft) ----------

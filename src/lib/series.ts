@@ -8,6 +8,8 @@ export interface SeriesTeam extends SimTeam {
   id: string;
   year: number; // meta year for drafting
   isUser?: boolean;
+  /** historical pedigree of an AI team (Worlds result + strength): seeds the groups draw */
+  pedigree?: number;
 }
 
 export interface SeriesGame {

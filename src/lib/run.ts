@@ -4,6 +4,7 @@ import type { RatedPlayer, Role, Team } from './types';
 import { ROLES } from './types';
 import type { SeriesTeam } from './series';
 import type { Format } from './tournament';
+import { TOURNAMENT } from '../config/balance';
 
 export interface RunConfig {
   seed: string;
@@ -44,23 +45,32 @@ export function offersForRound(cfg: RunConfig, round: number, picks: DraftPick[]
   return out;
 }
 
-/** 15 real opponents at real strength, excluding every roster offered during the draft. */
+/** Historical pedigree of a team: how far it went at Worlds and how strong its roster rates. */
+export function pedigree(placement: string, rating: number): number {
+  return (TOURNAMENT.fieldWeight[placement] ?? 1) * Math.exp((rating - TOURNAMENT.fieldRatingPivot) / TOURNAMENT.fieldRatingScale);
+}
+
+/**
+ * 15 real opponents at real strength, excluding every roster offered during the draft.
+ * Not a uniform draw: historically better teams (deep Worlds runs, strong rosters) are much likelier to be in the field.
+ * Sorted by pedigree, strongest first.
+ */
 export function pickOpponents(cfg: RunConfig, excluded: Set<string>): SeriesTeam[] {
   const rng = makeRng(`${cfg.seed}|field`);
-  const pool = TEAMS.filter((t) => !excluded.has(t.id) && t.worldsPlacement !== 'Play-In' && t.players.length >= 5);
-  const weight: Record<string, number> = { Winner: 3, Finalist: 3, Semifinals: 2.5, Quarterfinals: 2, Groups: 1 };
-  const chosen: Team[] = [];
-  const names = new Set<string>();
+  const pool = TEAMS.filter((t) => !excluded.has(t.id) && t.worldsPlacement !== 'Play-In' && t.players.length >= 5).map((t) => {
+    const st = teamToSeries(t);
+    return { t, st, w: pedigree(t.worldsPlacement, st.rating) };
+  });
+  const chosen: typeof pool = [];
   let guard = 0;
   while (chosen.length < 15 && guard++ < 2000) {
-    const t = rng.weighted(pool, (x) => weight[x.worldsPlacement] ?? 1);
+    const c = rng.weighted(pool, (x) => x.w);
     // avoid two copies of the same org-year and keep at most two seasons of one org
-    const org = t.name.toLowerCase();
-    if (chosen.includes(t) || chosen.filter((c) => c.name.toLowerCase() === org).length >= 2) continue;
-    chosen.push(t);
-    names.add(org);
+    const org = c.t.name.toLowerCase();
+    if (chosen.includes(c) || chosen.filter((x) => x.t.name.toLowerCase() === org).length >= 2) continue;
+    chosen.push(c);
   }
-  return chosen.map(teamToSeries);
+  return chosen.sort((a, b) => b.w - a.w).map((c) => ({ ...c.st, pedigree: c.w }));
 }
 
 export function userSeriesTeam(name: string, picks: DraftPick[]): SeriesTeam {

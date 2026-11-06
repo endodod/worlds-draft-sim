@@ -1,5 +1,5 @@
 import { TOURNAMENT } from '../config/balance';
-import { makeRng } from './rng';
+import { makeRng, type Rng } from './rng';
 import { simulateSeries, type SeriesResult, type SeriesTeam } from './series';
 import type { DraftPlan } from './draft';
 import type { StrategyKey } from './strategy';
@@ -34,20 +34,22 @@ export interface Tournament {
   userId: string;
 }
 
+const pairKey = (a: string, b: string) => [a, b].sort().join('|');
+/** Pairs without any rematch (backtracking), or null if that's impossible. */
+function solvePairs(rest: string[], played: Set<string>): [string, string][] | null {
+  if (rest.length < 2) return [];
+  const [a, ...others] = rest;
+  for (let i = 0; i < others.length; i++) {
+    if (played.has(pairKey(a, others[i]))) continue;
+    const sub = solvePairs(others.filter((_, j) => j !== i), played);
+    if (sub) return [[a, others[i]], ...sub];
+  }
+  return null;
+}
+
 /** Pairs teams so nobody meets a previous opponent (backtracking); falls back to allowing rematches if impossible. */
 export function pairWithoutRematch(ids: string[], played: Set<string>): [string, string][] {
-  const key = (a: string, b: string) => [a, b].sort().join('|');
-  const solve = (rest: string[]): [string, string][] | null => {
-    if (rest.length < 2) return [];
-    const [a, ...others] = rest;
-    for (let i = 0; i < others.length; i++) {
-      if (played.has(key(a, others[i]))) continue;
-      const sub = solve(others.filter((_, j) => j !== i));
-      if (sub) return [[a, others[i]], ...sub];
-    }
-    return null;
-  };
-  const ok = solve(ids);
+  const ok = solvePairs(ids, played);
   if (ok) return ok;
   const out: [string, string][] = [];
   for (let i = 0; i + 1 < ids.length; i += 2) out.push([ids[i], ids[i + 1]]);
@@ -55,6 +57,41 @@ export function pairWithoutRematch(ids: string[], played: Set<string>): [string,
 }
 
 const byId = (teams: SeriesTeam[]) => new Map(teams.map((t) => [t.id, t]));
+
+/**
+ * Swiss pairing inside one record bracket. The player's opponent is not a coin flip:
+ * stronger teams in the bracket are likelier to be drawn against them (TOURNAMENT.userOpponentBias).
+ */
+export function pairBracket(ids: string[], played: Set<string>, teams: Map<string, SeriesTeam>, userId: string, rng: Rng): [string, string][] {
+  const shuffled = rng.shuffle([...ids]);
+  if (!shuffled.includes(userId)) return pairWithoutRematch(shuffled, played);
+  const others = shuffled.filter((id) => id !== userId && !played.has(pairKey(userId, id)));
+  const avg = shuffled.reduce((a, id) => a + teams.get(id)!.rating, 0) / shuffled.length;
+  const pool = [...others];
+  while (pool.length) {
+    const opp = rng.weighted(pool, (id) => Math.exp(TOURNAMENT.userOpponentBias * (teams.get(id)!.rating - avg)));
+    const rest = solvePairs(shuffled.filter((id) => id !== userId && id !== opp), played);
+    if (rest) return [[userId, opp], ...rest];
+    pool.splice(pool.indexOf(opp), 1);
+  }
+  return pairWithoutRematch(shuffled, played);
+}
+
+/**
+ * Groups draw from pots, like the real Worlds: AI teams are potted by pedigree (strongest first), the player sits in the last pot,
+ * and every group takes one team per pot. So each group, the player's included, has a top seed.
+ */
+export function drawGroups(teams: SeriesTeam[], rng: Rng): SeriesTeam[][] {
+  const { groupsCount: G, groupSize: S } = TOURNAMENT;
+  const ai = teams.filter((t) => !t.isUser).sort((a, b) => (b.pedigree ?? b.rating) - (a.pedigree ?? a.rating));
+  const ordered = [...ai.slice(0, G * (S - 1)), ...teams.filter((t) => t.isUser), ...ai.slice(G * (S - 1))];
+  const groups: SeriesTeam[][] = Array.from({ length: G }, () => []);
+  for (let p = 0; p < S; p++) {
+    const pot = rng.shuffle(ordered.slice(p * G, (p + 1) * G));
+    pot.forEach((t, g) => groups[g].push(t));
+  }
+  return groups;
+}
 
 export function runTournament(teams: SeriesTeam[], format: Format, seed: string, fearless: boolean, plans: UserPlans = {}, strategies: UserStrategies = {}): Tournament {
   const sim = (id: string, stage: string, pair: [SeriesTeam, SeriesTeam], bo: number) => simulateSeries(id, stage, pair, bo, seed, fearless, plans[id], strategies[id]);
@@ -78,7 +115,7 @@ export function runTournament(teams: SeriesTeam[], format: Format, seed: string,
       }
       const series: SeriesResult[] = [];
       for (const [rec, ids] of [...groups.entries()].sort()) {
-        const pairs = pairWithoutRematch(rng.shuffle([...ids]), played);
+        const pairs = pairBracket(ids, played, map, user.id, rng);
         for (const [a, b] of pairs) {
           played.add([a, b].sort().join('|'));
           const [w, l] = rec.split('-').map(Number);
@@ -100,8 +137,7 @@ export function runTournament(teams: SeriesTeam[], format: Format, seed: string,
     const us = st.get(user.id)!;
     if (us.status === 'eliminated') userPlacement = `Swiss stage (${us.wins}-${us.losses})`;
   } else {
-    const shuffled = rng.shuffle([...teams]);
-    const groups = Array.from({ length: TOURNAMENT.groupsCount }, (_, g) => shuffled.slice(g * TOURNAMENT.groupSize, (g + 1) * TOURNAMENT.groupSize));
+    const groups = drawGroups(teams, rng);
     const st = new Map<string, Standing>(teams.map((t) => [t.id, { teamId: t.id, wins: 0, losses: 0, status: 'alive' }]));
     for (let leg = 1; leg <= 2; leg++) {
       const series: SeriesResult[] = [];
