@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import { GameSim, type SimTeam } from '../src/lib/game';
-import { banRisk, planPicks, runDraft, tierOf, type DraftPlan } from '../src/lib/draft';
+import { aiPlan, banRisk, planPicks, runDraft, tierOf, type DraftPlan } from '../src/lib/draft';
+import { matchup } from '../src/lib/champions';
 import { duoScore, teamDuos } from '../src/lib/duo';
 import { experienceIndex } from '../src/lib/strength';
 import { makeRng } from '../src/lib/rng';
@@ -29,6 +30,7 @@ function sims(over0: Parameters<typeof lineup>[2] = {}, over1: Parameters<typeof
   draft.comp[1] = draft.comp[0];
   draft.value[1] = draft.value[0];
   draft.picks[1] = draft.picks[0].map((p) => ({ ...p }));
+  draft.matchups = [0, 0, 0, 0, 0];
   return { teams, draft };
 }
 
@@ -133,6 +135,71 @@ describe('draft plans', () => {
     expect(tierOf(10, 5)).toBe('comfort');
     expect(tierOf(1, 2)).toBe('pocket');
     expect(tierOf(0, 0)).toBe('off');
+  });
+});
+
+describe('lane matchups', () => {
+  it('known counters win the lane, and the matchup is antisymmetric', () => {
+    expect(matchup('Morgana', 'Blitzcrank')).toBeGreaterThan(0.3);
+    expect(matchup('Blitzcrank', 'Morgana')).toBe(-matchup('Morgana', 'Blitzcrank'));
+    expect(matchup('Azir', 'Azir')).toBe(0);
+  });
+  it('a won lane matchup raises the lane win chance in the game', () => {
+    const input = sims();
+    const even = new GameSim({ ...input, year: 2024 }, makeRng('m')).laneProb({ key: 'top', roles: [0] });
+    const won = new GameSim({ ...input, year: 2024, draft: { ...input.draft, matchups: [0.6, 0, 0, 0, 0] } }, makeRng('m')).laneProb({ key: 'top', roles: [0] });
+    expect(won).toBeGreaterThan(even + 0.05);
+  });
+  it('counter-picks: a laner picked after the enemy laner gets the better matchup on average', () => {
+    let late = 0;
+    let blind = 0;
+    let nl = 0;
+    let nb = 0;
+    for (let i = 0; i < 150; i++) {
+      const d = runDraft(
+        [{ name: 'A', short: 'A', players: withPools('a', 65), year: 2024 }, { name: 'B', short: 'B', players: withPools('b', 65), year: 2024 }],
+        { fearless: false, locked: new Set(), winningChamps: new Set() },
+        makeRng('cp' + i),
+      );
+      const picks = d.order.filter((o) => o.type === 'pick');
+      for (const [k, o] of picks.entries()) {
+        const enemyFirst = picks.slice(0, k).some((x) => x.side !== o.side && x.role === o.role);
+        const pk = d.picks[o.side].find((p) => p.champion === o.champion)!;
+        if (enemyFirst) (late += pk.matchup ?? 0), nl++;
+        else (blind += pk.matchup ?? 0), nb++;
+      }
+    }
+    expect(late / nl).toBeGreaterThan(blind / nb);
+  });
+});
+
+describe('enemy draft strategy', () => {
+  const t = () => [
+    { name: 'A', short: 'A', players: withPools('a', 65), year: 2024 },
+    { name: 'B', short: 'B', players: withPools('b', 65), year: 2024 },
+  ] as const;
+  it('the AI picks every strategy, and leans aggressive in elimination games', () => {
+    const count = (pressure: boolean) => {
+      const c: Record<DraftPlan, number> = { comfort: 0, balanced: 0, deep: 0 };
+      for (let i = 0; i < 600; i++) c[aiPlan(withPools('a'), makeRng('ai' + i), { pressure })]++;
+      return c;
+    };
+    const calm = count(false);
+    expect(Math.min(calm.comfort, calm.balanced, calm.deep)).toBeGreaterThan(60);
+    expect(count(true).comfort).toBeGreaterThan(calm.comfort);
+  });
+  it("the user's side bans the picks it read from the enemy plan", () => {
+    let read = 0;
+    let banned = 0;
+    for (let i = 0; i < 200; i++) {
+      const d = runDraft(t() as never, { fearless: false, locked: new Set(), winningChamps: new Set() }, makeRng('read' + i), ['balanced', 'comfort'], [false, true]);
+      expect(d.plans[1]!.ai).toBe(true);
+      const reads = d.plans[1]!.read.slice(0, 5);
+      read += reads.length;
+      banned += reads.filter((c) => d.bans[0].includes(c)).length;
+    }
+    expect(read).toBeGreaterThan(100);
+    expect(banned / read).toBeGreaterThan(0.9);
   });
 });
 

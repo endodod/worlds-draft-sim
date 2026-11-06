@@ -141,6 +141,36 @@ export const PLAN = {
   banRisk: { comfort: 0.42, balanced: 0.2, deep: 0.06 } as Record<string, number>,
 };
 
+// ---------- AI draft strategy ----------
+export const AI_PLAN = {
+  /** base weights of the strategy an AI team picks when facing a planned (user) draft */
+  weights: { comfort: 0.38, balanced: 0.37, deep: 0.25 } as Record<string, number>,
+  /** shallow pools (avg comfort champions below POOL.shallowBelow) lean aggressive: nothing to hide */
+  shallowComfort: 0.25,
+  /** facing elimination: go for the best champions */
+  pressureComfort: 0.15,
+  /** after a game where many of their planned picks got banned: lean safe */
+  bannedDeep: 0.12,
+};
+
+// ---------- Lane matchups ----------
+export const MATCHUP = {
+  /** attribute weights (per point of difference, attributes are 0..5) */
+  early: 0.12,
+  poke: 0.05,
+  waveclear: 0.03,
+  /** draft value: up to ±counterValue (25%) for the best/worst lane matchup */
+  counterValue: 0.25,
+  /** a planned pick is swapped for another own-pool champion when its lane matchup is this bad */
+  dodgeBelow: -0.45,
+  /** ban priority bonus (per 1.0 of matchup) for a champion that counters one of your planned picks */
+  banCounter: 0.6,
+  /** game sim: logit per 1.0 of lane matchup (lane events, bot 2v2s, ganks into a lane) */
+  toLogit: 0.55,
+  /** jungle "matchup" (early invade pressure) counts less */
+  jungleWeight: 0.5,
+};
+
 // ---------- Series fatigue and pressure ----------
 export const FATIGUE = {
   /** rating penalty for a 0-experience player in game 4 / game 5, scaled by (1 - experience/100) */

@@ -1,6 +1,6 @@
 import { DRAFT } from '../config/balance';
 import { makeRng } from './rng';
-import { runDraft, type DraftPlan, type DraftResult, type DraftTeam, type SeriesDraftState } from './draft';
+import { aiPlan, runDraft, type DraftPlan, type DraftResult, type DraftTeam, type SeriesDraftState } from './draft';
 import { simulateGame, type GameResult, type SimTeam } from './game';
 
 export interface SeriesTeam extends SimTeam {
@@ -30,7 +30,8 @@ export interface SeriesResult {
 
 /**
  * Simulates a series game by game. `userPlans[g]` is the user's draft plan for game g (only applied to the
- * user's team; missing entries use the AI draft). Each game knows its number and which side faces elimination.
+ * user's team; missing entries use the AI draft). When the user plans a game, the AI opponent picks a hidden strategy too,
+ * so its planned picks can be read and banned the same way. Each game knows its number and which side faces elimination.
  */
 export function simulateSeries(id: string, stage: string, teams: [SeriesTeam, SeriesTeam], bestOf: number, seed: string, fearlessOpt?: boolean, userPlans: (DraftPlan | undefined)[] = []): SeriesResult {
   const fearless = fearlessOpt ?? (bestOf === 5 && DRAFT.fearlessDefaultBo5);
@@ -39,16 +40,27 @@ export function simulateSeries(id: string, stage: string, teams: [SeriesTeam, Se
   const score: [number, number] = [0, 0];
   const games: SeriesGame[] = [];
   let blue: 0 | 1 = makeRng(`${seed}|${id}|side`).chance(0.5) ? 0 : 1;
+  let aiBannedLast = 0;
   for (let g = 0; score[0] < need && score[1] < need; g++) {
     const rng = makeRng(`${seed}|${id}|g${g}`);
     const red = (1 - blue) as 0 | 1;
     const ordered: [SeriesTeam, SeriesTeam] = [teams[blue], teams[red]];
     const dteams = ordered.map((t) => ({ name: t.name, short: t.short, players: t.players, year: t.year })) as [DraftTeam, DraftTeam];
     const plan = userPlans[g];
-    const plans: [DraftPlan | undefined, DraftPlan | undefined] = [ordered[0].isUser ? plan : undefined, ordered[1].isUser ? plan : undefined];
-    const draft = runDraft(dteams, state, rng, plans);
     // a side faces elimination when the other side is one win from taking the series
     const pressure: [boolean, boolean] = bestOf > 1 ? [score[red] === need - 1, score[blue] === need - 1] : [false, false];
+    const plans: [DraftPlan | undefined, DraftPlan | undefined] = [ordered[0].isUser ? plan : undefined, ordered[1].isUser ? plan : undefined];
+    const aiSides: [boolean, boolean] = [false, false];
+    if (plan)
+      for (const s of [0, 1] as const)
+        if (!ordered[s].isUser) {
+          // own rng stream: the opponent's choice doesn't shift the game's random draws
+          plans[s] = aiPlan(ordered[s].players, makeRng(`${seed}|${id}|g${g}|aiplan`), { pressure: pressure[s], bannedLastGame: aiBannedLast });
+          aiSides[s] = true;
+        }
+    const draft = runDraft(dteams, state, rng, plans, aiSides);
+    const aiSide = aiSides.indexOf(true);
+    aiBannedLast = aiSide >= 0 ? draft.plans[aiSide]!.entries.filter((e) => e.status === 'banned').length : 0;
     const result = simulateGame({ teams: ordered, draft, year: Math.max(ordered[0].year, ordered[1].year), context: { game: g + 1, bestOf, pressure } }, rng);
     const winnerTeam = (result.winner === 0 ? blue : red) as 0 | 1;
     score[winnerTeam]++;

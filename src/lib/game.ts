@@ -1,4 +1,4 @@
-import { DRAFT, DUO, FATIGUE, POOL, SIM, TEMPO, TRAITS } from '../config/balance';
+import { DRAFT, DUO, FATIGUE, MATCHUP, POOL, SIM, TEMPO, TRAITS } from '../config/balance';
 import type { DraftResult, CompScore } from './draft';
 import { championAttrs, championTags } from './champions';
 import { duoValue, teamDuos, type DuoKey, type DuoScore } from './duo';
@@ -335,6 +335,13 @@ export class GameSim {
     return this.rng.shuffle([...arr]).slice(0, n);
   }
 
+  /** Champion lane matchup for side 0 in a lane (avg over its roles, -1..1; older drafts without matchups give 0). */
+  laneMatchup(roles: readonly number[]): number {
+    const m = this.input.draft.matchups;
+    if (!m) return 0;
+    return roles.reduce((a, i) => a + (m[i] ?? 0), 0) / roles.length;
+  }
+
   // ------------- events -------------
   /** Win probability for side 0 in a lane matchup. */
   laneProb(lane: (typeof LANES)[number]): number {
@@ -346,6 +353,7 @@ export class GameSim {
     if (lane.key === 'bot') x += DUO.toLogit * this.duoDiff('BOT-SUP');
     if (lane.key === 'top') x += 0.5 * DUO.toLogit * this.duoDiff('JNG-TOP');
     if (lane.key === 'mid') x += 0.5 * DUO.toLogit * this.duoDiff('JNG-MID');
+    x += MATCHUP.toLogit * this.laneMatchup(lane.roles);
     return sigmoid(x);
   }
 
@@ -354,6 +362,7 @@ export class GameSim {
     const lane = LANES[2];
     let x = SIM.playerDiffToLogit * this.statDiff([3, 4], (p) => 0.6 * p.rating.laning + 0.4 * p.rating.strength);
     x += DUO.toLogit * 1.4 * this.duoDiff('BOT-SUP');
+    x += MATCHUP.toLogit * this.laneMatchup([3, 4]);
     x += SIM.compToLogit * (this.comp(0).early - this.comp(1).early) / 3 + 0.3 * SIM.ratingToLogit * (this.power[0] - this.power[1]);
     const w: Side = this.rng.chance(sigmoid(x + 0.2 * this.rng.normal())) ? 0 : 1;
     const l = (1 - w) as Side;

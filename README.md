@@ -30,6 +30,10 @@ npm run build      # type-check + production build into dist/
 
 Risk is scaled by how meta the champion is (`× (0.7 + 0.6·meta)`). A planned pick the opponent reads is banned first. A banned (or stolen) planned pick is replaced by the player's next champion from their own pool that year, in line with the plan: Aggressive takes the next-best champion, Medium the next comfort pick (3+ games), Safe the next pocket pick. Champions a teammate still plans to play are skipped. Only when a player's real pool is used up (bans plus fearless) do they fall back to the year's meta (off-pool) and then the hidden default pool. So a greedy plan costs you your very best champions to bans, not random picks. You only choose the plan; picks, bans and replacements happen automatically. Simulating a stage without playing uses the AI draft. Your plans are part of the run: the series and everything after it are re-simulated from them, deterministically.
 
+**The opponent has a plan too.** Whenever you plan a game, the AI team picks its own hidden strategy (Aggressive / Medium / Safe, base weights 38/37/25%; shallow pools and elimination games lean Aggressive, a game where 2+ of their planned picks got banned leans Safe). Its planned picks are read with the same ban risk, and your side bans the read ones first, so their greedy plans lose their best champions to your bans just like yours do. The pick & ban screen shows both plans after the draft ("Their plan: Aggressive · 2 read"); bans that hit a read pick get an orange ring. Bans also protect your own plan: a champion that would counter one of your planned laners gets extra ban priority.
+
+**Lane matchups.** Every pick is scored against the enemy champion in the same role (−1…1, see Pick/ban below). The draft shows "counters X" / "countered by X" on a pick when one side clearly wins the lane. A planned pick that is free but hard-countered by an enemy laner already locked in (matchup ≤ −0.45) is swapped for an own-pool champion with a clearly better lane ("dodged the counter").
+
 ## Data
 
 | Source | Used for |
@@ -169,19 +173,21 @@ Every z-score is multiplied by `games/(games+8)` before the thresholds, so a ful
 ### Pick/ban, `src/lib/draft.ts`
 
 - Sequence per game: 3 bans each, picks B-R-R-B-B-R, 2 bans each, picks R-B-B-R.
-- `value = mastery × metaStrength(year) × (1 + 0.25·compFit + combo)`.
+- `value = mastery × metaStrength(year) × (1 + 0.25·compFit + combo) × (1 + 0.25·matchup)`.
+  - `matchup` (`src/lib/champions.ts`) = `0.12·Δearly + 0.05·Δpoke + 0.03·Δwaveclear` from the champion attributes, plus a small table of classic lane counters (Morgana vs hook supports, Galio vs AP assassins, Malphite vs Yasuo/Tryndamere, lane-bully ADCs vs Jinx/Aphelios, …), clamped to −1…1 and antisymmetric. The jungle "matchup" (early invade pressure) counts half. When picking, the AI only knows the matchup if the enemy laner is already locked, so later picks counter-pick; the final draft value uses the matchup against the final enemy laner, so blind picks pay for being countered.
   - `mastery = (0.35 + 0.65·g/(g+3)) · (0.7 + 0.6·winRate')` from the player's games on that champion **that year** (all events), with the win rate shrunk toward 50% for small samples. Champions outside the pool come from the year's role meta at mastery 0.3.
   - Pool tiers per player: **signature** (top 3 by games with ≥ 6 games), **comfort** (≥ 3 games), **pocket** (1–2), **off-pool** (in that year's role meta, mastery 0.3) and a hidden **default pool** (every champion ever played in the role, mastery 0.16, about −16 rating in game). The default pool never shows on player cards, but it is what players fall back on when fearless and bans eat their real pool. Tiers show as coloured rings on every champion icon.
   - `combo`: a small table of known pairings (Xayah–Rakan, Kalista–Thresh, Lucian–Nami, Yasuo–knock-ups, …) adds 4–12%.
   - `metaStrength = 0.55 + 0.45·√(presence/0.5)` from that year's pick presence.
   - `compFit` rewards covering missing engage, peel, waveclear or scaling.
-- **Bans** target the opponent's highest-value comfort picks in unfilled roles, with +35% priority for champions that won earlier games of the series.
+- **Bans** target the opponent's highest-value comfort picks in unfilled roles, with +35% priority for champions that won earlier games of the series. Read picks from the opponent's plan are banned first; the opponent's hidden (unread) plan picks are never banned; champions that counter your own planned laner get up to +60% priority.
 - **Fearless** (default on for Bo3 and Bo5): champions picked earlier in the series are locked for both teams. **Pool exhaustion** per player is the mastery-weighted share of their comfort pool that is banned, taken or locked.
 - **Composition**: engage, peel, poke, early, mid, late, split push and waveclear, summed from a hand-made table of about 165 champions (`src/data/championAttrs.json`). Any other champion is inferred from Data Dragon tags.
 
 ### Game simulation, `src/lib/game.ts`
 
 - **Team power** = team rating + per-game form swing (sd 6) + draft-value difference + 0.6 × the players' average form delta.
+- **Lane matchups**: lane events and bot-lane 2v2s add `0.55 × matchup` (the lane's average champion matchup) to the logit.
 - **Per-player form**: each player plays the game at `rating + delta` (laning, impact, teamfight, aggression, strength):
   - champion: `clamp((mastery − 0.8) · 25, −16, +5)`: a signature pick is worth up to +5, an off-pool champion about −12, a default-pool champion −16.
   - fatigue: in game 4 / game 5 of a series, `−5 / −8 × (1 − experience/100)`.
@@ -202,7 +208,7 @@ Every z-score is multiplied by `games/(games+8)` before the thresholds, so a ful
 - `strength.test.ts`: ordering, sample shrinkage, role weights (TOP laning > SUP laning)
 - `synergy.test.ts`: 0/1/2/3 shotcaller cases, played-together values and cap, region cap, playstyle fits, Swiss rematch avoidance
 - `draft.test.ts`: 10 unique picks and 10 bans, bans hit comfort picks, fearless locking raises pool exhaustion and lowers draft value by game 5
-- `features.test.ts`: tempo after dragon raises herald odds and decays; duo familiarity and style; a strong bot duo wins more dragons and 2v2s; greedier draft plans get more planned picks banned; pool tiers; fatigue in game 5 hits rookies not veterans; rookies crack under pressure far more than veterans; experience grows with career
+- `features.test.ts`: tempo after dragon raises herald odds and decays; duo familiarity and style; a strong bot duo wins more dragons and 2v2s; greedier draft plans get more planned picks banned; known counters win the lane and a won matchup raises lane odds; later picks get better matchups than blind picks; the AI picks every strategy and goes aggressive more under elimination; read enemy plan picks get banned; pool tiers; fatigue in game 5 hits rookies not veterans; rookies crack under pressure far more than veterans; experience grows with career
 - `events.test.ts`: over 1,000 sims, a stronger top laner wins grubs more than 50% of the time, even teams land at 40–60%, a stronger bot lane wins dragons more often, gank probability rises with jungler strength, no-shotcaller teams lose more Barons, the stronger team wins most games, and games are deterministic per seed
 
 ## Project layout
