@@ -1129,6 +1129,7 @@ export class GameSim {
       }
     }
     this.recordGold();
+    markKeyEvents(this.events);
     return {
       winner: this.winner,
       duration: this.t,
@@ -1140,6 +1141,63 @@ export class GameSim {
       ...(this.plan[0] && this.plan[1] ? { strategies: [this.plan[0], this.plan[1]] as [StrategyOutcome, StrategyOutcome] } : {}),
     };
   }
+}
+
+/** Most plays the Key events log shows per game (the game-start header line isn't counted). */
+export const KEY_EVENTS_PER_GAME = 7;
+/** Of those, how many can come from the early game. */
+export const EARLY_KEY_EVENTS = 3;
+const EARLY_UNTIL = 14 * 60;
+
+/** How much an early-game event is worth as a highlight (0 = never). */
+function earlyScore(e: GameEvent): number {
+  const d = e.deaths?.length ?? 0;
+  if (/FIRST BLOOD/.test(e.text)) return 10;
+  if (e.kind === 'misplay') return 6;
+  if (e.kind === 'objective') return e.objective === 'herald' || e.objective === 'grubs' ? 3 + d : 4 + d;
+  if (d >= 3) return 6 + d;
+  if (d === 2) return 4;
+  if (e.kind === 'tower') return 2;
+  return 0;
+}
+
+/** How much a mid/late-game event is worth as a game-deciding highlight (0 = never). */
+function lateScore(e: GameEvent): number {
+  const d = e.deaths?.length ?? 0;
+  if (e.objective === 'elder') return 12;
+  if (/SOUL/.test(e.text)) return 11;
+  if (/\bACE\b/.test(e.text)) return 10;
+  if (e.objective === 'baron') return 9;
+  if (e.kind === 'misplay') return /pressure gets to/.test(e.text) ? 9 : 7;
+  if (e.objective === 'atakhan') return 6;
+  if (d >= 4) return 5 + d / 10;
+  if (/inhibitor/.test(e.text)) return 4;
+  if (d === 3) return 3;
+  return 0;
+}
+
+/**
+ * Pick the few plays shown in the Key events log: up to EARLY_KEY_EVENTS early highlights
+ * (first blood, big skirmishes), then the game-deciding moments (Elder, soul, aces, Barons,
+ * chokes), plus the Nexus — at most KEY_EVENTS_PER_GAME in total. Rewrites `major` in place.
+ */
+export function markKeyEvents(events: GameEvent[]): void {
+  const keep = new Set<number>();
+  const endIdx = events.findIndex((e) => e.kind === 'end');
+  if (endIdx >= 0) keep.add(endIdx);
+  const top = (score: (e: GameEvent) => number, inRange: (e: GameEvent) => boolean, n: number, preferLater: boolean) =>
+    events
+      .map((e, i) => ({ i, s: e.kind === 'info' || e.kind === 'end' || !inRange(e) ? 0 : score(e) }))
+      .filter((x) => x.s > 0)
+      // best first; on ties, the earlier play early on and the later one (closer to the decision) late
+      .sort((a, b) => b.s - a.s || (preferLater ? b.i - a.i : a.i - b.i))
+      .slice(0, n)
+      .forEach((x) => keep.add(x.i));
+  top(earlyScore, (e) => e.t < EARLY_UNTIL, EARLY_KEY_EVENTS, false);
+  top(lateScore, (e) => e.t >= EARLY_UNTIL, KEY_EVENTS_PER_GAME - keep.size, true);
+  events.forEach((e, i) => {
+    e.major = keep.has(i) || i === 0;
+  });
 }
 
 /** A copy of a player with laning/impact/teamfight/strength shifted by `delta` rating points. */
