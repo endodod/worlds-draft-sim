@@ -1,0 +1,33 @@
+{
+  "title": "Outfits & fashion",
+  "about": "Clothes date a photo to the decade better than almost anything else, especially women's hemlines and hair, men's hats and lapels, and children's clothes. Quiz images come from the Wikipedia fashion-by-decade articles (photographs, catalogues and fashion plates of the time).",
+  "articles": [
+    {"w": "1900s in Western fashion", "f": 1900, "t": 1909},
+    {"w": "1910s in Western fashion", "f": 1910, "t": 1919},
+    {"w": "1920s in Western fashion", "f": 1920, "t": 1929},
+    {"w": "1930–1945 in Western fashion", "f": 1930, "t": 1945},
+    {"w": "1945–1960 in Western fashion", "f": 1945, "t": 1960},
+    {"w": "1960s in fashion", "f": 1960, "t": 1969},
+    {"w": "1970s in fashion", "f": 1970, "t": 1979},
+    {"w": "1980s in fashion", "f": 1980, "t": 1989},
+    {"w": "1990s in fashion", "f": 1990, "t": 1999},
+    {"w": "2000s in fashion", "f": 2000, "t": 2009},
+    {"w": "2010s in fashion", "f": 2010, "t": 2019},
+    {"w": "2020s in fashion", "f": 2020, "t": 2026}
+  ],
+  "sheet": [
+    ["1900s", "Floor-length skirts, S-bend corset 'pigeon chest', high lace collars, huge hats with feathers", "Three-piece suits, high stiff collars, bowler/top hat/boater, moustaches", "Children in sailor suits; everyone wears a hat outdoors"],
+    ["1910s", "Hobble skirts, ankles appear ~1915, wide hats; WW1 nurse/work uniforms", "Narrower suits, flat caps, uniforms everywhere 1914–18", "Military uniforms → 1914–1918"],
+    ["1920s", "Knee-length drop-waist dresses (1925+), bobbed hair, cloche hats", "Wide 'Oxford bags' trousers, boaters, fedoras, slicked hair", "Cloche hat = 1920s almost for sure"],
+    ["1930s", "Long bias-cut dresses, waist back at natural line, small tilted hats", "Wide-shouldered double-breasted suits, wide trousers, fedora", "Depression-era worn clothes, flat caps for workers"],
+    ["1940s", "Square padded shoulders, knee-length skirts, victory rolls hair, headscarves", "Military uniforms, wide ties, fedoras; 1947 Dior 'New Look' long full skirts", "Uniforms + rationed plain clothes → WW2"],
+    ["1950s", "Full circle skirts or pencil skirts, cinched waists, petticoats, gloves", "Grey suits, thin ties late 50s, hats still common, greaser jeans + leather jackets", "Men still wear hats in street photos until ~1960"],
+    ["1960s", "Mini skirt (1965+), shift dresses, beehive / bob hair, go-go boots", "Slim suits, skinny ties (early), long hair + beards (late 60s), hats disappear", "Hats vanish from men's heads; hippies 1967+"],
+    ["1970s", "Bell bottoms, flares, platform shoes, maxi dresses, earth tones, big hair", "Wide lapels & collars, flared trousers, sideburns, moustaches, long hair", "Brown/orange palette; faded colour film"],
+    ["1980s", "Shoulder pads, big permed hair, neon, leg warmers, high-waist jeans", "Mullets, tracksuits, oversized blazers, pastel suits", "Neon + shell suits + Walkman"],
+    ["1990s", "Baggy jeans, flannel grunge, slip dresses, chokers, 'Rachel' haircut", "Baggy everything, baseball caps, sportswear, oversized shirts", "Baggy jeans and logo sportswear"],
+    ["2000s", "Low-rise jeans, visible midriffs, Juicy tracksuits, UGG boots, big sunglasses", "Spiky frosted hair, cargo shorts, bootcut jeans, emo fringes (mid-2000s)", "Low-rise + flip phones"],
+    ["2010s", "Skinny jeans, leggings, athleisure, high-waist return late 2010s", "Skinny jeans, beards & man-buns (hipster), sneakers with suits", "Smartphones in every hand, selfie sticks"],
+    ["2020s", "Wide-leg jeans, oversized blazers, sneakers everywhere, face masks (2020–22)", "Wide trousers, puffer jackets, AirPods", "Masks = 2020–2022"]
+  ]
+}

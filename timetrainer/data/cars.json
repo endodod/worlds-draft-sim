@@ -1,0 +1,1308 @@
+{
+ "title": "Cars",
+ "about": "Production years are for the generation shown. In TimeGuessr a car proves the photo is AFTER its launch year; old cars stay on the road for decades (especially in Cuba, South America, Eastern Europe, Africa and India), so the NEWEST car in the picture is the one that matters.",
+ "items": [
+  {
+   "n": "Oldsmobile Curved Dash",
+   "w": "Oldsmobile Curved Dash",
+   "f": 1901,
+   "t": 1907,
+   "r": "US",
+   "tell": "Horseless-carriage look, tiller steering, no roof"
+  },
+  {
+   "n": "Ford Model T",
+   "w": "Ford Model T",
+   "f": 1908,
+   "t": 1927,
+   "r": "US",
+   "tell": "Tall, upright, black, spoked wheels, brass radiator before 1917"
+  },
+  {
+   "n": "Rolls-Royce Silver Ghost",
+   "w": "Rolls-Royce Silver Ghost",
+   "f": 1906,
+   "t": 1926,
+   "r": "UK",
+   "tell": "Long bonnet, open tourer, Rolls radiator"
+  },
+  {
+   "n": "Bébé Peugeot",
+   "w": "Peugeot Bébé",
+   "f": 1913,
+   "t": 1916,
+   "r": "FR",
+   "tell": "Tiny pre-WW1 two-seater"
+  },
+  {
+   "n": "Citroën Type A",
+   "w": "Citroën Type A",
+   "f": 1919,
+   "t": 1921,
+   "r": "FR",
+   "tell": "First Citroën, early 1920s tourer"
+  },
+  {
+   "n": "Austin 7",
+   "w": "Austin 7",
+   "f": 1922,
+   "t": 1939,
+   "r": "UK",
+   "tell": "Very small upright 1920s/30s British car"
+  },
+  {
+   "n": "Fiat 501",
+   "w": "Fiat 501",
+   "f": 1919,
+   "t": 1926,
+   "r": "IT",
+   "tell": "1920s Italian tourer"
+  },
+  {
+   "n": "Opel Laubfrosch",
+   "w": "Opel 4 PS",
+   "f": 1924,
+   "t": 1931,
+   "r": "DE",
+   "tell": "Small green 1920s German car"
+  },
+  {
+   "n": "Ford Model A",
+   "w": "Ford Model A (1927–1931)",
+   "f": 1927,
+   "t": 1931,
+   "r": "US",
+   "tell": "Successor of the T: lower, rounder, still separate fenders"
+  },
+  {
+   "n": "Duesenberg Model J",
+   "w": "Duesenberg Model J",
+   "f": 1928,
+   "t": 1937,
+   "r": "US",
+   "tell": "Huge luxury car, exposed exhaust pipes"
+  },
+  {
+   "n": "Chrysler Airflow",
+   "w": "Chrysler Airflow",
+   "f": 1934,
+   "t": 1937,
+   "r": "US",
+   "tell": "First streamlined US car, waterfall grille"
+  },
+  {
+   "n": "Citroën Traction Avant",
+   "w": "Citroën Traction Avant",
+   "f": 1934,
+   "t": 1957,
+   "r": "FR",
+   "tell": "Low black French saloon, gangster-film look; WW2 France"
+  },
+  {
+   "n": "Tatra 77",
+   "w": "Tatra 77",
+   "f": 1934,
+   "t": 1938,
+   "r": "CZ",
+   "tell": "Aerodynamic with tail fin"
+  },
+  {
+   "n": "Lincoln-Zephyr",
+   "w": "Lincoln-Zephyr",
+   "f": 1936,
+   "t": 1942,
+   "r": "US",
+   "tell": "Streamlined late-30s American"
+  },
+  {
+   "n": "Cord 810",
+   "w": "Cord 810/812",
+   "f": 1936,
+   "t": 1937,
+   "r": "US",
+   "tell": "Coffin nose, hidden headlights"
+  },
+  {
+   "n": "GAZ-M1",
+   "w": "GAZ-M1",
+   "f": 1936,
+   "t": 1943,
+   "r": "SU",
+   "tell": "Soviet 1930s saloon, Ford-derived"
+  },
+  {
+   "n": "Fiat 500 Topolino",
+   "w": "Fiat 500 \"Topolino\"",
+   "f": 1936,
+   "t": 1955,
+   "r": "IT",
+   "tell": "Tiny, headlights on the fenders"
+  },
+  {
+   "n": "Mercedes-Benz 170 V (W136)",
+   "w": "Mercedes-Benz W136",
+   "f": 1936,
+   "t": 1955,
+   "r": "DE",
+   "tell": "Separate fenders, upright grille; still common in post-war Germany"
+  },
+  {
+   "n": "Opel Olympia",
+   "w": "Opel Olympia",
+   "f": 1935,
+   "t": 1953,
+   "r": "DE",
+   "tell": "Rounded late-30s German saloon"
+  },
+  {
+   "n": "Peugeot 402",
+   "w": "Peugeot 402",
+   "f": 1935,
+   "t": 1942,
+   "r": "FR",
+   "tell": "Headlights behind the grille"
+  },
+  {
+   "n": "Volkswagen Beetle",
+   "w": "Volkswagen Beetle",
+   "f": 1938,
+   "t": 2003,
+   "r": "DE",
+   "tell": "Everywhere 1950s–70s Europe; split rear window until 1953, small oval until 1957; Mexico taxis until 2000s"
+  },
+  {
+   "n": "Willys MB Jeep",
+   "w": "Willys MB",
+   "f": 1941,
+   "t": 1945,
+   "r": "US",
+   "tell": "WW2 military jeep, slotted grille"
+  },
+  {
+   "n": "GAZ-M20 Pobeda",
+   "w": "GAZ-M20 Pobeda",
+   "f": 1946,
+   "t": 1958,
+   "r": "SU",
+   "tell": "Fastback Soviet saloon, no separate fenders"
+  },
+  {
+   "n": "Tucker 48",
+   "w": "Tucker 48",
+   "f": 1947,
+   "t": 1948,
+   "r": "US",
+   "tell": "Centre 'cyclops' headlight"
+  },
+  {
+   "n": "Renault 4CV",
+   "w": "Renault 4CV",
+   "f": 1947,
+   "t": 1961,
+   "r": "FR",
+   "tell": "Small rounded rear-engine; Paris 1950s"
+  },
+  {
+   "n": "Volvo PV444",
+   "w": "Volvo PV444",
+   "f": 1947,
+   "t": 1958,
+   "r": "SE",
+   "tell": "Hump-backed Swedish saloon"
+  },
+  {
+   "n": "Citroën 2CV",
+   "w": "Citroën 2CV",
+   "f": 1948,
+   "t": 1990,
+   "r": "FR",
+   "tell": "Corrugated bonnet, canvas roof; rural France for 40 years"
+  },
+  {
+   "n": "Land Rover Series I",
+   "w": "Land Rover Series I",
+   "f": 1948,
+   "t": 1958,
+   "r": "UK",
+   "tell": "Flat-panel 4x4, headlights behind mesh grille"
+  },
+  {
+   "n": "Morris Minor",
+   "w": "Morris Minor",
+   "f": 1948,
+   "t": 1971,
+   "r": "UK",
+   "tell": "Rounded British small car, split windscreen until 1956"
+  },
+  {
+   "n": "Jaguar XK120",
+   "w": "Jaguar XK120",
+   "f": 1948,
+   "t": 1954,
+   "r": "UK",
+   "tell": "Flowing post-war sports car"
+  },
+  {
+   "n": "Ford F-Series (1st gen)",
+   "w": "Ford F-Series (first generation)",
+   "f": 1948,
+   "t": 1952,
+   "r": "US",
+   "tell": "Rounded post-war pickup"
+  },
+  {
+   "n": "Peugeot 203",
+   "w": "Peugeot 203",
+   "f": 1948,
+   "t": 1960,
+   "r": "FR",
+   "tell": "Fastback rounded 1950s French"
+  },
+  {
+   "n": "Saab 92",
+   "w": "Saab 92",
+   "f": 1949,
+   "t": 1956,
+   "r": "SE",
+   "tell": "Teardrop-shaped Swedish"
+  },
+  {
+   "n": "Chevrolet Corvette (C1)",
+   "w": "Chevrolet Corvette (C1)",
+   "f": 1953,
+   "t": 1962,
+   "r": "US",
+   "tell": "Chrome-toothed grille roadster"
+  },
+  {
+   "n": "Mercedes-Benz Ponton (W120)",
+   "w": "Mercedes-Benz W120",
+   "f": 1953,
+   "t": 1962,
+   "r": "DE",
+   "tell": "Pontoon body: fenders merged into the sides"
+  },
+  {
+   "n": "Mercedes-Benz 300 SL",
+   "w": "Mercedes-Benz 300 SL",
+   "f": 1954,
+   "t": 1963,
+   "r": "DE",
+   "tell": "Gullwing doors"
+  },
+  {
+   "n": "Ford Thunderbird (1st gen)",
+   "w": "Ford Thunderbird (first generation)",
+   "f": 1955,
+   "t": 1957,
+   "r": "US",
+   "tell": "Two-seat, porthole hardtop"
+  },
+  {
+   "n": "Citroën DS",
+   "w": "Citroën DS",
+   "f": 1955,
+   "t": 1975,
+   "r": "FR",
+   "tell": "Spaceship nose; swivelling double headlights from 1967"
+  },
+  {
+   "n": "BMW Isetta",
+   "w": "BMW Isetta",
+   "f": 1955,
+   "t": 1962,
+   "r": "DE",
+   "tell": "Bubble car with front door"
+  },
+  {
+   "n": "Fiat 600",
+   "w": "Fiat 600",
+   "f": 1955,
+   "t": 1969,
+   "r": "IT",
+   "tell": "Small rounded rear-engine; Spain (SEAT 600) everywhere in the 60s"
+  },
+  {
+   "n": "Volvo Amazon",
+   "w": "Volvo Amazon",
+   "f": 1956,
+   "t": 1970,
+   "r": "SE",
+   "tell": "Rounded Swedish saloon with grille 'mouth'"
+  },
+  {
+   "n": "Renault Dauphine",
+   "w": "Renault Dauphine",
+   "f": 1956,
+   "t": 1967,
+   "r": "FR",
+   "tell": "Small rounded rear-engine French"
+  },
+  {
+   "n": "GAZ-21 Volga",
+   "w": "GAZ-21",
+   "f": 1956,
+   "t": 1970,
+   "r": "SU",
+   "tell": "Chrome 'shark' grille, Soviet taxi of the 60s"
+  },
+  {
+   "n": "AEC Routemaster (London bus)",
+   "w": "AEC Routemaster",
+   "f": 1956,
+   "t": 2005,
+   "r": "UK",
+   "tell": "Red open-back London double-decker (built 1956–68, in service until 2005)"
+  },
+  {
+   "n": "Fiat 500 (1957)",
+   "w": "Fiat 500",
+   "f": 1957,
+   "t": 1975,
+   "r": "IT",
+   "tell": "Tiny rounded Italian car with suicide doors (until 1965)"
+  },
+  {
+   "n": "Hindustan Ambassador",
+   "w": "Hindustan Ambassador",
+   "f": 1958,
+   "t": 2014,
+   "r": "IN",
+   "tell": "1950s-shaped Indian taxi (Kolkata yellow) until 2014"
+  },
+  {
+   "n": "Austin FX4 (London taxi)",
+   "w": "Austin FX4",
+   "f": 1958,
+   "t": 1997,
+   "r": "UK",
+   "tell": "The classic black London cab"
+  },
+  {
+   "n": "Mini",
+   "w": "Mini",
+   "f": 1959,
+   "t": 2000,
+   "r": "UK",
+   "tell": "Tiny box on 10-inch wheels"
+  },
+  {
+   "n": "Ford Anglia 105E",
+   "w": "Ford Anglia",
+   "f": 1959,
+   "t": 1968,
+   "r": "UK",
+   "tell": "Reverse-raked rear window"
+  },
+  {
+   "n": "Toyota Land Cruiser (J40)",
+   "w": "Toyota Land Cruiser (J40)",
+   "f": 1960,
+   "t": 1984,
+   "r": "JP",
+   "tell": "Boxy 4x4, Africa/Middle East/Latin America"
+  },
+  {
+   "n": "Renault 4",
+   "w": "Renault 4",
+   "f": 1961,
+   "t": 1994,
+   "r": "FR",
+   "tell": "Tall boxy hatch, very common in France, Spain, Colombia"
+  },
+  {
+   "n": "Jaguar E-Type",
+   "w": "Jaguar E-Type",
+   "f": 1961,
+   "t": 1975,
+   "r": "UK",
+   "tell": "Long bonnet sports car"
+  },
+  {
+   "n": "Mercedes-Benz Fintail (W111)",
+   "w": "Mercedes-Benz W111",
+   "f": 1959,
+   "t": 1971,
+   "r": "DE",
+   "tell": "Small tail fins, vertical stacked headlights"
+  },
+  {
+   "n": "Checker Marathon",
+   "w": "Checker Marathon",
+   "f": 1961,
+   "t": 1982,
+   "r": "US",
+   "tell": "Classic boxy yellow NYC cab"
+  },
+  {
+   "n": "Ford Falcon (Argentina)",
+   "w": "Ford Falcon (Argentina)",
+   "f": 1962,
+   "t": 1991,
+   "r": "AR",
+   "tell": "Argentina staple for 30 years"
+  },
+  {
+   "n": "BMW New Class",
+   "w": "BMW New Class",
+   "f": 1962,
+   "t": 1977,
+   "r": "DE",
+   "tell": "Hofmeister kink, slim 60s BMW"
+  },
+  {
+   "n": "Porsche 911 (classic)",
+   "w": "Porsche 911 (classic)",
+   "f": 1964,
+   "t": 1989,
+   "r": "DE",
+   "tell": "Round headlights; impact bumpers from 1974"
+  },
+  {
+   "n": "Ford Mustang (1st gen)",
+   "w": "Ford Mustang (first generation)",
+   "f": 1964,
+   "t": 1973,
+   "r": "US",
+   "tell": "Long hood, short deck pony car"
+  },
+  {
+   "n": "Trabant 601",
+   "w": "Trabant 601",
+   "f": 1964,
+   "t": 1990,
+   "r": "DDR",
+   "tell": "Boxy East German two-stroke; Berlin Wall fall 1989"
+  },
+  {
+   "n": "Opel Kadett B",
+   "w": "Opel Kadett B",
+   "f": 1965,
+   "t": 1973,
+   "r": "DE",
+   "tell": "Simple boxy 60s German saloon"
+  },
+  {
+   "n": "Toyota Corolla (E10)",
+   "w": "Toyota Corolla (E10)",
+   "f": 1966,
+   "t": 1970,
+   "r": "JP",
+   "tell": "First Corolla"
+  },
+  {
+   "n": "Volvo 140",
+   "w": "Volvo 140 Series",
+   "f": 1966,
+   "t": 1974,
+   "r": "SE",
+   "tell": "Boxy Volvo"
+  },
+  {
+   "n": "Fiat 124 / Lada",
+   "w": "Fiat 124",
+   "f": 1966,
+   "t": 1974,
+   "r": "IT",
+   "tell": "Basis for the Lada 2101 (Soviet bloc until 2012)"
+  },
+  {
+   "n": "Moskvitch 412",
+   "w": "Moskvitch 412",
+   "f": 1967,
+   "t": 1998,
+   "r": "SU",
+   "tell": "Square Soviet saloon"
+  },
+  {
+   "n": "Mercedes-Benz W114/W115",
+   "w": "Mercedes-Benz W114",
+   "f": 1968,
+   "t": 1976,
+   "r": "DE",
+   "tell": "'Strich-Acht', Morocco/Africa taxis for decades"
+  },
+  {
+   "n": "Peugeot 504",
+   "w": "Peugeot 504",
+   "f": 1968,
+   "t": 1983,
+   "r": "FR",
+   "tell": "Africa workhorse (built in Nigeria/Kenya into the 2000s)"
+  },
+  {
+   "n": "Dacia 1300",
+   "w": "Dacia 1300",
+   "f": 1969,
+   "t": 2004,
+   "r": "RO",
+   "tell": "Romanian Renault 12, the Romanian car of the 70s–90s"
+  },
+  {
+   "n": "Chevrolet Opala",
+   "w": "Chevrolet Opala",
+   "f": 1969,
+   "t": 1992,
+   "r": "BR",
+   "tell": "Brazilian classic"
+  },
+  {
+   "n": "Nissan Fairlady Z / Datsun 240Z",
+   "w": "Nissan S30",
+   "f": 1969,
+   "t": 1978,
+   "r": "JP",
+   "tell": "Long-nose Japanese sports car"
+  },
+  {
+   "n": "VAZ-2101 (Lada)",
+   "w": "VAZ-2101",
+   "f": 1970,
+   "t": 1988,
+   "r": "SU",
+   "tell": "Boxy Soviet Fiat 124; Lada 2105/2107 continue the look until 2012"
+  },
+  {
+   "n": "GAZ-24 Volga",
+   "w": "GAZ-24",
+   "f": 1970,
+   "t": 1992,
+   "r": "SU",
+   "tell": "Square Soviet taxi/official car"
+  },
+  {
+   "n": "Range Rover (1st gen)",
+   "w": "Range Rover Classic",
+   "f": 1970,
+   "t": 1996,
+   "r": "UK",
+   "tell": "Clamshell bonnet, two-door at first"
+  },
+  {
+   "n": "AMC Gremlin",
+   "w": "AMC Gremlin",
+   "f": 1970,
+   "t": 1978,
+   "r": "US",
+   "tell": "Chopped-off tail American subcompact"
+  },
+  {
+   "n": "Ford Pinto",
+   "w": "Ford Pinto",
+   "f": 1971,
+   "t": 1980,
+   "r": "US",
+   "tell": "70s US small car"
+  },
+  {
+   "n": "Fiat 126 (Maluch)",
+   "w": "Fiat 126",
+   "f": 1972,
+   "t": 2000,
+   "r": "PL",
+   "tell": "Poland's tiny car, everywhere 1975–2000"
+  },
+  {
+   "n": "Honda Civic (1st gen)",
+   "w": "Honda Civic (first generation)",
+   "f": 1972,
+   "t": 1979,
+   "r": "JP",
+   "tell": "Small two-box Japanese"
+  },
+  {
+   "n": "Renault 5 / Super 5",
+   "w": "Renault 5",
+   "f": 1972,
+   "t": 1996,
+   "r": "FR",
+   "tell": "Plastic bumpers, slanted hatch; Super 5 (1984–96) looks almost the same"
+  },
+  {
+   "n": "Volkswagen Passat (B1)",
+   "w": "Volkswagen Passat (B1)",
+   "f": 1973,
+   "t": 1980,
+   "r": "DE",
+   "tell": "Giugiaro fastback"
+  },
+  {
+   "n": "Volkswagen Brasília",
+   "w": "Volkswagen Brasília",
+   "f": 1973,
+   "t": 1982,
+   "r": "BR",
+   "tell": "Brazil-only boxy VW"
+  },
+  {
+   "n": "Volkswagen Golf Mk1",
+   "w": "Volkswagen Golf Mk1",
+   "f": 1974,
+   "t": 1983,
+   "r": "DE",
+   "tell": "Round headlights, flat bonnet, sharp straight creases"
+  },
+  {
+   "n": "Volvo 240",
+   "w": "Volvo 240",
+   "f": 1974,
+   "t": 1993,
+   "r": "SE",
+   "tell": "The brick; Scandinavia until 2000s"
+  },
+  {
+   "n": "Citroën CX",
+   "w": "Citroën CX",
+   "f": 1974,
+   "t": 1991,
+   "r": "FR",
+   "tell": "Concave rear window, long nose"
+  },
+  {
+   "n": "BMW 3 Series (E21)",
+   "w": "BMW 3 Series (E21)",
+   "f": 1975,
+   "t": 1983,
+   "r": "DE",
+   "tell": "First 3 series, two-door"
+  },
+  {
+   "n": "Hyundai Pony",
+   "w": "Hyundai Pony",
+   "f": 1975,
+   "t": 1990,
+   "r": "KR",
+   "tell": "First Korean mass car"
+  },
+  {
+   "n": "Mercedes-Benz W123",
+   "w": "Mercedes-Benz W123",
+   "f": 1976,
+   "t": 1986,
+   "r": "DE",
+   "tell": "Wide grille, Middle East/Africa taxi icon"
+  },
+  {
+   "n": "Fiat 147",
+   "w": "Fiat 147",
+   "f": 1976,
+   "t": 1986,
+   "r": "BR",
+   "tell": "Brazilian/Argentine Fiat 127"
+  },
+  {
+   "n": "Škoda 105/120",
+   "w": "Škoda 105/120",
+   "f": 1976,
+   "t": 1990,
+   "r": "CZ",
+   "tell": "Rear-engined Czechoslovak saloon"
+  },
+  {
+   "n": "Lada Niva",
+   "w": "Lada Niva",
+   "f": 1977,
+   "t": null,
+   "r": "SU",
+   "tell": "Small boxy 4x4, still built"
+  },
+  {
+   "n": "FSO Polonez",
+   "w": "FSO Polonez",
+   "f": 1978,
+   "t": 2002,
+   "r": "PL",
+   "tell": "Polish fastback"
+  },
+  {
+   "n": "Volkswagen Gol (late generations)",
+   "w": "Volkswagen Gol",
+   "f": 2008,
+   "t": 2023,
+   "r": "BR",
+   "tell": "Brazil's best-seller for 27 years; the Gol nameplate dates from 1980"
+  },
+  {
+   "n": "Zastava Koral (Yugo)",
+   "w": "Zastava Koral",
+   "f": 1980,
+   "t": 2008,
+   "r": "YU",
+   "tell": "Yugoslav small hatch"
+  },
+  {
+   "n": "Lada Riva / 2105–2107",
+   "w": "Lada Riva",
+   "f": 1980,
+   "t": 2012,
+   "r": "SU",
+   "tell": "Square-light Lada, Russia/ex-USSR until 2010s"
+  },
+  {
+   "n": "DeLorean DMC-12",
+   "w": "DeLorean DMC-12",
+   "f": 1981,
+   "t": 1983,
+   "r": "US",
+   "tell": "Stainless steel gullwing"
+  },
+  {
+   "n": "Mercedes-Benz 190 (W201)",
+   "w": "Mercedes-Benz W201",
+   "f": 1982,
+   "t": 1993,
+   "r": "DE",
+   "tell": "Compact 80s Mercedes"
+  },
+  {
+   "n": "BMW 3 Series (E30)",
+   "w": "BMW 3 Series (E30)",
+   "f": 1982,
+   "t": 1994,
+   "r": "DE",
+   "tell": "Boxy 80s BMW with round quad lights"
+  },
+  {
+   "n": "Ford Sierra",
+   "w": "Ford Sierra",
+   "f": 1982,
+   "t": 1993,
+   "r": "UK",
+   "tell": "Aero 'jelly mould', no grille on early ones"
+  },
+  {
+   "n": "Citroën BX",
+   "w": "Citroën BX",
+   "f": 1982,
+   "t": 1994,
+   "r": "FR",
+   "tell": "Wedge hatch, single-spoke wheel"
+  },
+  {
+   "n": "Volkswagen Golf Mk2",
+   "w": "Volkswagen Golf Mk2",
+   "f": 1983,
+   "t": 1992,
+   "r": "DE",
+   "tell": "Rounder than Mk1, round headlights, thick C-pillar"
+  },
+  {
+   "n": "Peugeot 205",
+   "w": "Peugeot 205",
+   "f": 1983,
+   "t": 1998,
+   "r": "FR",
+   "tell": "Small crisp 80s French hatch"
+  },
+  {
+   "n": "Mercedes-Benz W124",
+   "w": "Mercedes-Benz W124",
+   "f": 1984,
+   "t": 1997,
+   "r": "DE",
+   "tell": "80s/90s E-class, everywhere as taxi"
+  },
+  {
+   "n": "Jeep Cherokee (XJ)",
+   "w": "Jeep Cherokee (XJ)",
+   "f": 1984,
+   "t": 2001,
+   "r": "US",
+   "tell": "Boxy compact SUV"
+  },
+  {
+   "n": "Opel Kadett E",
+   "w": "Opel Kadett E",
+   "f": 1984,
+   "t": 1991,
+   "r": "DE",
+   "tell": "Aero 80s Opel (Daewoo Nexia/Cielo until 2016)"
+  },
+  {
+   "n": "Lada Samara",
+   "w": "Lada Samara",
+   "f": 1984,
+   "t": 2013,
+   "r": "SU",
+   "tell": "Wedge Lada"
+  },
+  {
+   "n": "Ford Taurus (1st gen)",
+   "w": "Ford Taurus (first generation)",
+   "f": 1986,
+   "t": 1991,
+   "r": "US",
+   "tell": "Aero US saloon, flush lights"
+  },
+  {
+   "n": "Volkswagen Golf Mk3",
+   "w": "Volkswagen Golf Mk3",
+   "f": 1991,
+   "t": 1999,
+   "r": "DE",
+   "tell": "Oval headlights, rounder"
+  },
+  {
+   "n": "BMW 3 Series (E36)",
+   "w": "BMW 3 Series (E36)",
+   "f": 1990,
+   "t": 2000,
+   "r": "DE",
+   "tell": "Lights under a glass cover"
+  },
+  {
+   "n": "Opel Astra F",
+   "w": "Opel Astra F",
+   "f": 1991,
+   "t": 1998,
+   "r": "DE",
+   "tell": "Early 90s Opel"
+  },
+  {
+   "n": "Ford Crown Victoria",
+   "w": "Ford Crown Victoria",
+   "f": 1992,
+   "t": 2011,
+   "r": "US",
+   "tell": "NYC cab/police car until ~2012"
+  },
+  {
+   "n": "Renault Twingo (3rd gen)",
+   "w": "Renault Twingo",
+   "f": 2014,
+   "t": 2024,
+   "r": "FR",
+   "tell": "Rear-engined small hatch, round lights"
+  },
+  {
+   "n": "Ford Mondeo (1st gen)",
+   "w": "Ford Mondeo (first generation)",
+   "f": 1993,
+   "t": 2000,
+   "r": "UK",
+   "tell": "Rounded 90s family car"
+  },
+  {
+   "n": "Peugeot 306",
+   "w": "Peugeot 306",
+   "f": 1993,
+   "t": 2002,
+   "r": "FR",
+   "tell": "Mid-90s rounded French"
+  },
+  {
+   "n": "Mercedes-Benz E-Class (W210)",
+   "w": "Mercedes-Benz E-Class (W210)",
+   "f": 1995,
+   "t": 2003,
+   "r": "DE",
+   "tell": "Four oval headlights"
+  },
+  {
+   "n": "Toyota Prius (1st gen)",
+   "w": "Toyota Prius (XW10)",
+   "f": 1997,
+   "t": 2003,
+   "r": "JP",
+   "tell": "Small hybrid saloon"
+  },
+  {
+   "n": "Volkswagen Golf Mk4",
+   "w": "Volkswagen Golf Mk4",
+   "f": 1997,
+   "t": 2006,
+   "r": "DE",
+   "tell": "Clean round arc roof, blue-lit dash"
+  },
+  {
+   "n": "Volkswagen New Beetle",
+   "w": "Volkswagen New Beetle",
+   "f": 1997,
+   "t": 2011,
+   "r": "DE",
+   "tell": "Retro bubble"
+  },
+  {
+   "n": "Peugeot 206",
+   "w": "Peugeot 206",
+   "f": 1998,
+   "t": 2012,
+   "r": "FR",
+   "tell": "Cat-eye headlights; Iran/South America later"
+  },
+  {
+   "n": "Ford Focus (1st gen)",
+   "w": "Ford Focus (first generation)",
+   "f": 1998,
+   "t": 2004,
+   "r": "US",
+   "tell": "New edge design, triangular lights"
+  },
+  {
+   "n": "Smart Fortwo (3rd gen)",
+   "w": "Smart Fortwo",
+   "f": 2014,
+   "t": 2024,
+   "r": "DE",
+   "tell": "Two-seat city car, wider than the 1998 original"
+  },
+  {
+   "n": "Chrysler PT Cruiser",
+   "w": "Chrysler PT Cruiser",
+   "f": 2000,
+   "t": 2010,
+   "r": "US",
+   "tell": "Retro 30s-style hatch"
+  },
+  {
+   "n": "Mini Cooper (J01)",
+   "w": "Mini Hatch",
+   "f": 2024,
+   "t": null,
+   "r": "UK",
+   "tell": "Latest retro Mini; the BMW Mini started in 2001"
+  },
+  {
+   "n": "Peugeot 307",
+   "w": "Peugeot 307",
+   "f": 2001,
+   "t": 2008,
+   "r": "FR",
+   "tell": "Tall rounded hatch"
+  },
+  {
+   "n": "Hummer H2",
+   "w": "Hummer H2",
+   "f": 2002,
+   "t": 2009,
+   "r": "US",
+   "tell": "Huge boxy 2000s SUV"
+  },
+  {
+   "n": "Toyota Prius (2nd gen)",
+   "w": "Toyota Prius (XW20)",
+   "f": 2003,
+   "t": 2009,
+   "r": "JP",
+   "tell": "Wedge hybrid hatch, Uber/taxi"
+  },
+  {
+   "n": "Volkswagen Golf Mk5",
+   "w": "Volkswagen Golf Mk5",
+   "f": 2003,
+   "t": 2009,
+   "r": "DE",
+   "tell": "Round tail-lights, chrome grille on later ones"
+  },
+  {
+   "n": "Dacia Logan (3rd gen)",
+   "w": "Dacia Logan",
+   "f": 2020,
+   "t": null,
+   "r": "RO",
+   "tell": "Budget saloon with Y-shaped LED lights; the boxy 2004 Logan was everywhere in Eastern Europe"
+  },
+  {
+   "n": "Ford Focus (4th gen)",
+   "w": "Ford Focus (second generation)",
+   "f": 2018,
+   "t": 2025,
+   "r": "US",
+   "tell": "Smooth late-2010s hatch"
+  },
+  {
+   "n": "Opel Astra L",
+   "w": "Opel Astra H",
+   "f": 2021,
+   "t": null,
+   "r": "DE",
+   "tell": "Black 'Vizor' front, 2020s Opel"
+  },
+  {
+   "n": "Peugeot 207",
+   "w": "Peugeot 207",
+   "f": 2006,
+   "t": 2012,
+   "r": "FR",
+   "tell": "Big 'mouth' grille"
+  },
+  {
+   "n": "Fiat 500 (2007)",
+   "w": "Fiat 500 (2007)",
+   "f": 2007,
+   "t": null,
+   "r": "IT",
+   "tell": "Retro modern 500"
+  },
+  {
+   "n": "Tata Nano",
+   "w": "Tata Nano",
+   "f": 2008,
+   "t": 2018,
+   "r": "IN",
+   "tell": "Tiny Indian car"
+  },
+  {
+   "n": "Volkswagen Golf Mk6",
+   "w": "Volkswagen Golf Mk6",
+   "f": 2008,
+   "t": 2012,
+   "r": "DE",
+   "tell": "Horizontal slim grille"
+  },
+  {
+   "n": "Ford Fiesta (6th gen)",
+   "w": "Ford Fiesta (sixth generation)",
+   "f": 2008,
+   "t": 2017,
+   "r": "US",
+   "tell": "Kinetic design"
+  },
+  {
+   "n": "Toyota Prius (3rd gen)",
+   "w": "Toyota Prius (XW30)",
+   "f": 2009,
+   "t": 2015,
+   "r": "JP",
+   "tell": "Most common hybrid taxi of the 2010s"
+  },
+  {
+   "n": "Nissan Leaf (2nd gen)",
+   "w": "Nissan Leaf",
+   "f": 2017,
+   "t": 2025,
+   "r": "JP",
+   "tell": "Common EV in Norway/Japan"
+  },
+  {
+   "n": "Dacia Duster (3rd gen)",
+   "w": "Dacia Duster",
+   "f": 2024,
+   "t": null,
+   "r": "RO",
+   "tell": "Boxy budget SUV; earlier Dusters (2010+) everywhere in Eastern Europe"
+  },
+  {
+   "n": "Nissan Juke (2nd gen)",
+   "w": "Nissan Juke",
+   "f": 2019,
+   "t": null,
+   "r": "JP",
+   "tell": "Round headlights low, slim lights on top"
+  },
+  {
+   "n": "Range Rover Evoque (2nd gen)",
+   "w": "Range Rover Evoque",
+   "f": 2019,
+   "t": null,
+   "r": "UK",
+   "tell": "Coupe-like SUV, flush door handles"
+  },
+  {
+   "n": "Tesla Model S",
+   "w": "Tesla Model S",
+   "f": 2012,
+   "t": null,
+   "r": "US",
+   "tell": "Smooth nose; grille-less after 2016"
+  },
+  {
+   "n": "Volkswagen Golf Mk7",
+   "w": "Volkswagen Golf Mk7",
+   "f": 2012,
+   "t": 2019,
+   "r": "DE",
+   "tell": "Sharp crease, LED lights on later"
+  },
+  {
+   "n": "Renault Zoe",
+   "w": "Renault Zoe",
+   "f": 2012,
+   "t": 2024,
+   "r": "FR",
+   "tell": "Small French EV"
+  },
+  {
+   "n": "Jeep Renegade",
+   "w": "Jeep Renegade",
+   "f": 2014,
+   "t": null,
+   "r": "US",
+   "tell": "Boxy small Jeep"
+  },
+  {
+   "n": "Toyota C-HR",
+   "w": "Toyota C-HR",
+   "f": 2016,
+   "t": null,
+   "r": "JP",
+   "tell": "Angular coupe crossover"
+  },
+  {
+   "n": "Tesla Model 3",
+   "w": "Tesla Model 3",
+   "f": 2017,
+   "t": null,
+   "r": "US",
+   "tell": "Everywhere from ~2019"
+  },
+  {
+   "n": "Volkswagen ID.3",
+   "w": "Volkswagen ID.3",
+   "f": 2019,
+   "t": null,
+   "r": "DE",
+   "tell": "VW EV hatch, no grille"
+  },
+  {
+   "n": "Volkswagen Golf Mk8",
+   "w": "Volkswagen Golf Mk8",
+   "f": 2019,
+   "t": null,
+   "r": "DE",
+   "tell": "Slim LED light bar"
+  },
+  {
+   "n": "Peugeot 208 (2nd gen)",
+   "w": "Peugeot 208",
+   "f": 2019,
+   "t": null,
+   "r": "FR",
+   "tell": "Fang LED daytime lights"
+  },
+  {
+   "n": "Tesla Model Y",
+   "w": "Tesla Model Y",
+   "f": 2020,
+   "t": null,
+   "r": "US",
+   "tell": "Best-selling car in the world 2023"
+  },
+  {
+   "n": "Ford Mustang Mach-E",
+   "w": "Ford Mustang Mach-E",
+   "f": 2020,
+   "t": null,
+   "r": "US",
+   "tell": "EV crossover with Mustang lights"
+  },
+  {
+   "n": "Polestar 2",
+   "w": "Polestar 2",
+   "f": 2020,
+   "t": null,
+   "r": "SE",
+   "tell": "Frameless EV fastback"
+  },
+  {
+   "n": "Hyundai Ioniq 5",
+   "w": "Hyundai Ioniq 5",
+   "f": 2021,
+   "t": null,
+   "r": "KR",
+   "tell": "Pixel lights, retro hatch"
+  },
+  {
+   "n": "Kia EV6",
+   "w": "Kia EV6",
+   "f": 2021,
+   "t": null,
+   "r": "KR",
+   "tell": "Low EV crossover"
+  },
+  {
+   "n": "Dacia Spring",
+   "w": "Dacia Spring",
+   "f": 2021,
+   "t": null,
+   "r": "RO",
+   "tell": "Budget tiny EV"
+  },
+  {
+   "n": "BYD Atto 3",
+   "w": "BYD Atto 3",
+   "f": 2022,
+   "t": null,
+   "r": "CN",
+   "tell": "Chinese EV, Europe/Asia from 2022"
+  },
+  {
+   "n": "MG4",
+   "w": "MG4 EV",
+   "f": 2022,
+   "t": null,
+   "r": "CN",
+   "tell": "Chinese-built EV hatch"
+  },
+  {
+   "n": "Tesla Cybertruck",
+   "w": "Tesla Cybertruck",
+   "f": 2023,
+   "t": null,
+   "r": "US",
+   "tell": "Stainless steel wedge"
+  }
+ ],
+ "sheet": [
+  [
+   "1900s–1910s",
+   "Open bodies, no roof or folding top, tall and narrow, spoked/wooden wheels, brass lamps, no windscreen wipers; horses still dominate the street",
+   "Ford Model T, Renault AG, Oldsmobile Curved Dash"
+  ],
+  [
+   "1920s",
+   "Upright boxy closed saloons appear, running boards, separate fenders, disc or wire wheels, mostly black",
+   "Model T, Austin 7, Citroën Type C, Ford Model A (1927+)"
+  ],
+  [
+   "1930s",
+   "Lower, sloping radiator grilles, rounded fenders, streamlining begins (Airflow 1934), headlights still separate pods",
+   "Citroën Traction Avant, Mercedes 170V, VW prototype, GAZ-M1"
+  ],
+  [
+   "1940s",
+   "War: military jeeps/trucks, few new cars. After 1946 headlights merge into fenders; first 'pontoon' bodies",
+   "Willys MB, Pobeda, 2CV, Morris Minor, Land Rover"
+  ],
+  [
+   "1950s",
+   "Pontoon bodies (no separate fenders), lots of chrome, two-tone paint, US tail fins (peak 1959), bubble cars in Europe",
+   "Beetle, Fiat 600, DS, Mercedes Ponton, 1957 Chevrolet"
+  ],
+  [
+   "1960s",
+   "Flatter, straighter lines, fins gone by ~1965, round single headlights in Europe, compact cars (Mini, Fiat 500), US muscle cars",
+   "Mini, Renault 4, Mustang, Volga GAZ-21, Fiat 124"
+  ],
+  [
+   "1970s",
+   "Boxy wedge shapes, black plastic bumpers (late 70s), rectangular headlights, earth-tone paint (brown, orange, mustard), US 5-mph bumpers 1974+",
+   "Golf Mk1, Volvo 240, Lada 2101, Mercedes W123, Renault 5"
+  ],
+  [
+   "1980s",
+   "Square boxes with flush glass, plastic bumpers in body colour later, aero shapes from mid-80s (Sierra, Taurus), pop-up headlights",
+   "Golf Mk2, BMW E30, Mercedes W124/190, Fiat Uno, Peugeot 205"
+  ],
+  [
+   "1990s",
+   "Rounded 'jelly bean' shapes, body-coloured bumpers, oval lights, first MPVs and SUVs, metallic greens and teals",
+   "Golf Mk3/4, Twingo, Ford Ka, Mondeo, Clio"
+  ],
+  [
+   "2000s",
+   "Large clear-lens headlights, taller cars, retro designs (New Beetle, Mini, PT Cruiser), silver everywhere, crossovers from 2006",
+   "Golf Mk5, Peugeot 206/207, Prius, Qashqai, Logan"
+  ],
+  [
+   "2010s",
+   "LED daytime running light strips, huge grilles, SUVs/crossovers dominate, white/grey/black paint, first mass EVs",
+   "Tesla Model S/3, Golf Mk7, Duster, Juke, Nissan Leaf"
+  ],
+  [
+   "2020s",
+   "Full-width LED light bars, closed grilles (EVs), Chinese EV brands in Europe (BYD, MG, NIO), giant screens inside",
+   "Tesla Model Y, ID.3/ID.4, Ioniq 5, BYD Atto 3, MG4"
+  ]
+ ]
+}

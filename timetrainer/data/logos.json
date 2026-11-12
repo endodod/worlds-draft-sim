@@ -1,0 +1,135 @@
+{
+  "title": "Logos & brands",
+  "about": "Shop signs, ads, trucks and packaging in a photo can date it to a few years. Quiz images are historic logo files from Wikimedia Commons whose file names carry the year the design was introduced. Your answer is scored against the period that logo was in use.",
+  "brands": [
+    {"b": "Coca-Cola", "cats": ["Coca-Cola logos", "Logos of Coca-Cola"], "timeline": [
+      [1887, "Spencerian script wordmark (still the basis today)"],
+      [1941, "'Coke' nickname appears in ads alongside the script"],
+      [1947, "Red disc ('button') sign behind the script: classic 1940s–60s shop sign"],
+      [1958, "Fishtail / Arciform sign (1958–1965)"],
+      [1969, "White 'Dynamic Ribbon' wave under the script (Arden Square logo)"],
+      [1985, "'New Coke' (1985) and 'Coca-Cola Classic' label 1985–2009"],
+      [2007, "Back to plain script + ribbon; 'Coke Zero' black cans (2005+)"],
+      [2021, "'Real Magic' hug logo in ads"]]},
+    {"b": "Pepsi", "cats": ["Pepsi logos", "Logos of Pepsi"], "timeline": [
+      [1898, "Brad's Drink renamed Pepsi-Cola: spiky red script"],
+      [1940, "Smoother red script 'Pepsi-Cola'"],
+      [1950, "Script inside red-white-blue bottle cap with serrated edge"],
+      [1962, "Hyphen and 'Cola' dropped: sans-serif PEPSI on the cap"],
+      [1973, "Pepsi globe: simplified circle with red top, blue bottom, white wave"],
+      [1991, "PEPSI moves out of the globe, italic, red bar"],
+      [1998, "Blue background era, 3D globe (Pepsi Blue look) 1998–2008"],
+      [2008, "'Smile' globe, lowercase 'pepsi' (2008–2023)"],
+      [2023, "Back to bold black PEPSI inside the globe (retro 1990s style)"]]},
+    {"b": "McDonald's", "cats": ["McDonald's logos", "Logos of McDonald's"], "timeline": [
+      [1953, "Speedee chef mascot; real golden arches on the buildings"],
+      [1962, "Arches form the 'M' logo with roofline"],
+      [1968, "Golden arches with red-box name, 'Over X billion served' signs"],
+      [2003, "'i'm lovin' it'; red background fading out"],
+      [2006, "Green background in Europe (2009+); bare yellow M"]]},
+    {"b": "Shell", "cats": ["Shell logos", "Royal Dutch Shell logos", "Logos of Shell plc"], "timeline": [
+      [1904, "Realistic scallop shell drawing"],
+      [1948, "Red/yellow shell gets bolder outline"],
+      [1971, "Raymond Loewy's simplified pecten (still used)"],
+      [1995, "Pecten refreshed, colours brighter; name removed from logo in 1999"]]},
+    {"b": "BP", "cats": ["BP logos", "Logos of BP"], "timeline": [
+      [1920, "BP in a shield"],
+      [1958, "Green-yellow shield with BP letters"],
+      [1989, "Shield modernised, italic bp"],
+      [2000, "Green-yellow 'Helios' sunflower, lowercase bp"]]},
+    {"b": "Esso / Exxon", "cats": ["Esso logos", "ExxonMobil logos", "Exxon logos"], "timeline": [
+      [1923, "Esso in red oval (Europe keeps it to today)"],
+      [1972, "USA: Esso renamed Exxon (double-X logo)"],
+      [1999, "ExxonMobil merger; Mobil pegasus stations"]]},
+    {"b": "Volkswagen", "cats": ["Volkswagen logos", "Logos of Volkswagen"], "timeline": [
+      [1937, "Cog-wheel/swastika-like early KdF logo"],
+      [1945, "VW roundel"],
+      [1978, "White VW on blue square/roundel dealer signs"],
+      [2000, "3D chrome roundel"],
+      [2019, "Flat 2D roundel"]]},
+    {"b": "BMW", "cats": ["BMW logos", "Logos of BMW"], "timeline": [
+      [1917, "Black ring roundel with blue/white quarters"],
+      [1997, "3D shaded roundel"],
+      [2020, "Flat transparent roundel (marketing)"]]},
+    {"b": "Apple", "cats": ["Apple Inc. logos", "Apple logos"], "timeline": [
+      [1976, "Newton under a tree"],
+      [1977, "Rainbow-striped bitten apple (until 1998)"],
+      [1998, "Monochrome apple; glossy/aqua 2001–2007"],
+      [2007, "Flat silver/black apple, 'Apple Inc.'"]]},
+    {"b": "Nokia", "cats": ["Nokia logos", "Logos of Nokia"], "timeline": [
+      [1965, "Nokia corporate logos"],
+      [1992, "Blue NOKIA wordmark with 'Connecting People' – phones everywhere 1995–2010"],
+      [2023, "New angular NOKIA logo"]]},
+    {"b": "Google", "cats": ["Google logos", "Logos of Google"], "timeline": [
+      [1998, "Google! with exclamation"],
+      [1999, "Catull serif multicolour logo (until 2015)"],
+      [2015, "Sans-serif 'Product Sans' logo, 'G' icon"]]},
+    {"b": "Starbucks", "cats": ["Starbucks logos", "Logos of Starbucks"], "timeline": [
+      [1971, "Brown siren, full body"],
+      [1987, "Green ring 'STARBUCKS COFFEE' (1987–2011)"],
+      [2011, "Wordless green siren"]]},
+    {"b": "Kodak", "cats": ["Kodak logos", "Logos of Kodak"], "timeline": [
+      [1907, "Kodak wordmark on yellow"],
+      [1971, "Red-yellow 'K' box (until 2006)"],
+      [2006, "Plain red KODAK wordmark"]]},
+    {"b": "IBM", "cats": ["IBM logos", "Logos of IBM"], "timeline": [
+      [1924, "Globe 'International Business Machines'"],
+      [1956, "Solid IBM letters (Paul Rand)"],
+      [1972, "8-stripe IBM (still used)"]]},
+    {"b": "Nike", "cats": ["Nike logos", "Logos of Nike, Inc."], "timeline": [
+      [1971, "Swoosh introduced, with script 'nike'"],
+      [1978, "Bold NIKE in block letters over swoosh"],
+      [1995, "Swoosh alone"]]},
+    {"b": "Adidas", "cats": ["Adidas logos", "Logos of Adidas"], "timeline": [
+      [1949, "Three stripes on shoes"],
+      [1971, "Trefoil logo"],
+      [1991, "Three bars ('mountain') performance logo"],
+      [2002, "Trefoil retained for Originals"]]},
+    {"b": "Ford", "cats": ["Ford logos", "Ford Motor Company logos"], "timeline": [
+      [1903, "Ornate wordmark"],
+      [1912, "Script 'Ford' (still the basis)"],
+      [1927, "Blue oval"],
+      [1976, "Modern blue oval with silver border"],
+      [2003, "Centennial gradient blue oval"]]},
+    {"b": "Renault", "cats": ["Renault logos", "Logos of Renault"], "timeline": [
+      [1925, "Diamond (losange) shape"],
+      [1972, "Vasarely's line diamond (until 1992)"],
+      [1992, "Solid 3D diamond"],
+      [2021, "Flat double-line diamond"]]},
+    {"b": "Peugeot", "cats": ["Peugeot logos", "Logos of Peugeot"], "timeline": [
+      [1858, "Lion on an arrow"],
+      [1975, "Outlined lion silhouette"],
+      [1998, "Bold 3D chrome lion"],
+      [2010, "Metallic flat-ish lion"],
+      [2021, "Lion head in shield"]]},
+    {"b": "Pan Am", "cats": ["Pan Am logos", "Logos of Pan American World Airways"], "timeline": [
+      [1955, "Blue globe logo"],
+      [1991, "Airline ceases operations: a Pan Am plane/sign = before 1992"]]},
+    {"b": "Lufthansa", "cats": ["Lufthansa logos", "Logos of Lufthansa"], "timeline": [
+      [1918, "Crane (Kranich) symbol"],
+      [1963, "Otl Aicher crane in yellow circle on blue"],
+      [2018, "Dark blue livery, no yellow"]]},
+    {"b": "Deutsche Bahn / Bundesbahn", "cats": ["Deutsche Bahn logos", "Deutsche Bundesbahn logos"], "timeline": [
+      [1949, "DB in a rectangle (Deutsche Bundesbahn, West)"],
+      [1994, "Red 'DB' Deutsche Bahn after merger with Reichsbahn"]]},
+    {"b": "Mercedes-Benz", "cats": ["Mercedes-Benz logos", "Logos of Mercedes-Benz"], "timeline": [
+      [1909, "Three-pointed star"],
+      [1926, "Star in laurel wreath after merger"],
+      [1989, "Simplified chrome star"]]},
+    {"b": "Microsoft / Windows", "cats": ["Microsoft logos", "Microsoft Windows logos", "Logos of Microsoft Windows"], "timeline": [
+      [1987, "'Pac-Man' Microsoft wordmark (until 2012)"],
+      [1992, "Waving flag Windows logo"],
+      [2001, "Windows XP flag"],
+      [2012, "Four flat squares (Microsoft and Windows)"]]}
+  ],
+  "sheet_extra": [
+    ["Euro currency", 2002, "Euro notes/coins in daily use from 1 Jan 2002; Deutsche Mark, Franc, Lira, Peseta etc. prices = before 2002"],
+    ["EU flag / blue plate band", 1993, "EU stars on plates/signs: mid-1990s+"],
+    ["Smartphones", 2007, "iPhone 2007; touchscreens in hands = 2009+; selfies & sticks 2013+"],
+    ["Covid masks", 2020, "Face masks in western street photos: 2020–2022"],
+    ["E-scooters (Lime/Bird)", 2018, "Rental e-scooters in cities 2018+"],
+    ["LED screens / flat TVs", 2005, "Flat screens 2005+; CRT before"],
+    ["Colour photos", 1935, "Kodachrome 1935; colour common in amateur photos from the 1960s; warm faded tones 1970s"],
+    ["Google Street View-like digital", 2000, "Sharp digital, high dynamic range, wide-angle = 2000s+"]
+  ]
+}
